@@ -66,17 +66,28 @@ export class PlantUMLPipe {
 
         this.proc.stdout!.on('data', (chunk: Buffer) => {
             this.outBuf += chunk.toString('utf-8');
-            const end = this.outBuf.indexOf('</svg>');
-            if (end === -1) return;
-            const svg = this.outBuf.slice(0, end + 6);
-            this.outBuf = this.outBuf.slice(end + 6);
-            const p = this.pending!;
-            this.pending = null;
-            p.resolve(svg);
-            this.next();
+            let end: number;
+            while ((end = this.outBuf.indexOf('</svg>')) !== -1) {
+                const svg = this.outBuf.slice(0, end + 6);
+                this.outBuf = this.outBuf.slice(end + 6);
+                if (!this.pending) break;
+                const p = this.pending;
+                this.pending = null;
+                p.resolve(svg);
+                this.next();
+            }
         });
 
         this.proc.stderr!.on('data', () => {});
+
+        this.proc.stdin!.on('error', (err) => {
+            const p = this.pending;
+            this.pending = null;
+            this.proc = null;
+            p?.reject(err);
+            this.queue.forEach(item => item.reject(err));
+            this.queue = [];
+        });
 
         this.proc.on('error', (err) => {
             const p = this.pending;
@@ -89,12 +100,14 @@ export class PlantUMLPipe {
 
         this.proc.on('close', (code) => {
             this.proc = null;
+            const err = new Error(`PlantUML process exited unexpectedly (code ${code})`);
             if (this.pending) {
                 const p = this.pending;
                 this.pending = null;
-                p.reject(new Error(`PlantUML process exited unexpectedly (code ${code})`));
-                if (this.queue.length > 0) this.next();
+                p.reject(err);
             }
+            this.queue.forEach(item => item.reject(err));
+            this.queue = [];
         });
     }
 }
