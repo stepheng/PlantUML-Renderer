@@ -274,12 +274,24 @@ function applySearch(): void {
     if (!svgEl || !searchQuery) { updateCounter(); return; }
 
     const qi = searchQuery.toLowerCase();
+    const collected: SVGTextElement[] = [];
     for (const el of Array.from(svgEl.querySelectorAll<SVGTextElement>('text'))) {
         if ((el.textContent ?? '').toLowerCase().includes(qi)) {
-            originalHTML.set(el, el.innerHTML);
-            highlightEl(el, '#ffee58');
-            searchMatches.push(el);
+            collected.push(el);
         }
+    }
+
+    collected.sort((a, b) => {
+        const ay = parseFloat(a.getAttribute('y') ?? '0');
+        const by = parseFloat(b.getAttribute('y') ?? '0');
+        if (ay !== by) return ay - by;
+        return parseFloat(a.getAttribute('x') ?? '0') - parseFloat(b.getAttribute('x') ?? '0');
+    });
+
+    for (const el of collected) {
+        originalHTML.set(el, el.innerHTML);
+        highlightEl(el, '#ffee58');
+        searchMatches.push(el);
     }
 
     if (searchMatches.length > 0) {
