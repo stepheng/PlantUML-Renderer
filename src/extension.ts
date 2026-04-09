@@ -17,7 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
     let cfg = getConfig();
     if (!cfg.jarPath) {
         vscode.window.showErrorMessage(
-            'PlantUML Renderer: plantumlRenderer.jarPath is not set. Configure it in Settings.',
+            'PlantUML Renderer: plantumlRenderer.jarPath is not set. Configure it in Settings, then reload the window.',
         );
         return;
     }
@@ -25,6 +25,8 @@ export function activate(context: vscode.ExtensionContext) {
     let panel: PreviewPanel | null = null;
 
     context.subscriptions.push(
+        { dispose: () => pipe.kill() },
+
         vscode.commands.registerCommand('plantuml.preview', () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor) return;

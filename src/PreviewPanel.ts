@@ -69,6 +69,10 @@ export class PreviewPanel {
     }
 
     private async _handleMessage(msg: { type: string; format?: string; data?: string; message?: string }) {
+        if (msg.type === 'exportError') {
+            vscode.window.showErrorMessage(`Export failed: ${msg.message ?? 'unknown error'}`);
+            return;
+        }
         if (msg.type !== 'export' || !this._currentFilePath) return;
 
         const dir = path.dirname(this._currentFilePath);
