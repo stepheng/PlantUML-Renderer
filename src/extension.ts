@@ -11,11 +11,18 @@ function getConfig() {
     };
 }
 
+let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
 export function activate(context: vscode.ExtensionContext) {
     let cfg = getConfig();
+    if (!cfg.jarPath) {
+        vscode.window.showErrorMessage(
+            'PlantUML Renderer: plantumlRenderer.jarPath is not set. Configure it in Settings.',
+        );
+        return;
+    }
     let pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath);
     let panel: PreviewPanel | null = null;
-    let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
     context.subscriptions.push(
         vscode.commands.registerCommand('plantuml.preview', () => {
@@ -49,6 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.workspace.onDidChangeConfiguration(e => {
             if (!e.affectsConfiguration('plantumlRenderer')) return;
+            clearTimeout(debounceTimer);
             pipe.kill();
             cfg = getConfig();
             pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath);
@@ -57,4 +65,6 @@ export function activate(context: vscode.ExtensionContext) {
     );
 }
 
-export function deactivate() {}
+export function deactivate() {
+    clearTimeout(debounceTimer);
+}
