@@ -11,6 +11,18 @@ let W = 800, H = 600;
 let scale = 1, minScale = 0.1;
 let tx = 0, ty = 0;
 
+// Search state
+const searchBar     = document.getElementById('search-bar')      as HTMLDivElement;
+const searchInput   = document.getElementById('search-input')     as HTMLInputElement;
+const searchCount   = document.getElementById('search-count')     as HTMLSpanElement;
+
+let searchOpen    = false;
+let searchQuery   = '';
+let searchMatches: SVGTextElement[] = [];
+let searchIndex   = -1;
+const originalHTML = new Map<SVGTextElement, string>();
+let searchDebounce: ReturnType<typeof setTimeout> | undefined;
+
 // ---------------------------------------------------------------------------
 // Message handling
 // ---------------------------------------------------------------------------
@@ -60,6 +72,7 @@ function showSvg(svg: string) {
         minScale = scale;
         tx = 0; ty = 0;
         applyZoom();
+        if (searchOpen && searchQuery) applySearch();
     });
 }
 
@@ -173,3 +186,151 @@ document.getElementById('btn-png')!.addEventListener('click', () => {
     };
     img.src = svgDataUrl;
 });
+
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+
+function openSearch(): void {
+    searchOpen = true;
+    searchBar.classList.add('open');
+    searchInput.focus();
+    searchInput.select();
+    if (svgEl && searchQuery) applySearch();
+}
+
+function closeSearch(): void {
+    searchOpen = false;
+    searchBar.classList.remove('open');
+    clearHighlights();
+    searchMatches = [];
+    searchIndex   = -1;
+    updateCounter();
+}
+
+function updateCounter(): void {
+    searchCount.textContent = searchMatches.length === 0
+        ? '0 / 0'
+        : `${searchIndex + 1} / ${searchMatches.length}`;
+}
+
+function escapeHtml(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function clearHighlights(): void {
+    originalHTML.forEach((html, el) => { el.innerHTML = html; });
+    originalHTML.clear();
+}
+
+function highlightEl(el: SVGTextElement, fill: string): void {
+    const text  = el.textContent ?? '';
+    const lower = text.toLowerCase();
+    const qi    = searchQuery.toLowerCase();
+    const idx   = lower.indexOf(qi);
+    if (idx === -1) return;
+    el.innerHTML =
+        escapeHtml(text.slice(0, idx)) +
+        `<tspan fill="${fill}">${escapeHtml(text.slice(idx, idx + searchQuery.length))}</tspan>` +
+        escapeHtml(text.slice(idx + searchQuery.length));
+}
+
+function panToMatch(el: SVGTextElement): void {
+    if (!svgEl) return;
+    const elRect   = el.getBoundingClientRect();
+    const cRect    = container.getBoundingClientRect();
+    const barH     = searchOpen ? searchBar.offsetHeight : 0;
+    const targetCx = cRect.left + cRect.width / 2;
+    const targetCy = cRect.top + barH + (cRect.height - barH) / 2;
+    tx += targetCx - (elRect.left + elRect.width / 2);
+    ty += targetCy - (elRect.top + elRect.height / 2);
+    applyZoom();
+}
+
+function activateMatch(idx: number): void {
+    if (searchMatches.length === 0) return;
+    // Restore previous active → normal yellow
+    if (searchIndex >= 0 && searchIndex < searchMatches.length) {
+        const prev = searchMatches[searchIndex];
+        const orig = originalHTML.get(prev);
+        if (orig !== undefined) { prev.innerHTML = orig; }
+        highlightEl(prev, '#ffee58');
+    }
+    searchIndex = idx;
+    const el   = searchMatches[idx];
+    const orig = originalHTML.get(el);
+    if (orig !== undefined) { el.innerHTML = orig; }
+    highlightEl(el, '#ff9800');
+    panToMatch(el);
+    updateCounter();
+}
+
+function applySearch(): void {
+    clearHighlights();
+    searchMatches = [];
+    searchIndex   = -1;
+
+    if (!svgEl || !searchQuery) { updateCounter(); return; }
+
+    const qi = searchQuery.toLowerCase();
+    for (const el of Array.from(svgEl.querySelectorAll<SVGTextElement>('text'))) {
+        if ((el.textContent ?? '').toLowerCase().includes(qi)) {
+            originalHTML.set(el, el.innerHTML);
+            highlightEl(el, '#ffee58');
+            searchMatches.push(el);
+        }
+    }
+
+    if (searchMatches.length > 0) {
+        searchIndex = 0;
+        // Activate first match (orange + pan) without touching previous index
+        const el   = searchMatches[0];
+        const orig = originalHTML.get(el)!;
+        el.innerHTML = orig;
+        highlightEl(el, '#ff9800');
+        panToMatch(el);
+    }
+    updateCounter();
+}
+
+function navigateNext(): void {
+    if (searchMatches.length === 0) return;
+    activateMatch((searchIndex + 1) % searchMatches.length);
+}
+
+function navigatePrev(): void {
+    if (searchMatches.length === 0) return;
+    activateMatch((searchIndex - 1 + searchMatches.length) % searchMatches.length);
+}
+
+// Keyboard shortcuts
+window.addEventListener('keydown', (e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        openSearch();
+        return;
+    }
+    if (e.key === 'Escape' && searchOpen) {
+        closeSearch();
+        return;
+    }
+    if (e.key === 'Enter' && searchOpen) {
+        e.preventDefault();
+        if (e.shiftKey) navigatePrev(); else navigateNext();
+    }
+});
+
+// Debounced input handler
+searchInput.addEventListener('input', () => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+        searchQuery = searchInput.value;
+        applySearch();
+    }, 150);
+});
+
+// Button handlers
+document.getElementById('btn-search-open')!.addEventListener('click', openSearch);
+document.getElementById('btn-prev')!.addEventListener('click', navigatePrev);
+document.getElementById('btn-next')!.addEventListener('click', navigateNext);
+document.getElementById('btn-search-close')!.addEventListener('click', closeSearch);
