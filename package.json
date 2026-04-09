@@ -1,0 +1,72 @@
+{
+  "name": "vscode-plantuml-renderer",
+  "displayName": "PlantUML Renderer",
+  "description": "Live preview for .puml and .iuml files using a local PlantUML JAR",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onLanguage:plantuml",
+    "onLanguage:plantuml-include"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "plantuml",
+        "aliases": ["PlantUML"],
+        "extensions": [".puml"]
+      },
+      {
+        "id": "plantuml-include",
+        "aliases": ["PlantUML Include"],
+        "extensions": [".iuml"]
+      }
+    ],
+    "commands": [
+      {
+        "command": "plantuml.preview",
+        "title": "PlantUML: Open Preview"
+      }
+    ],
+    "configuration": {
+      "title": "PlantUML Renderer",
+      "properties": {
+        "plantumlRenderer.jarPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to plantuml.jar (required)"
+        },
+        "plantumlRenderer.javaPath": {
+          "type": "string",
+          "default": "/usr/bin/java",
+          "description": "Path to the java executable"
+        },
+        "plantumlRenderer.dotPath": {
+          "type": "string",
+          "default": "/opt/homebrew/bin/dot",
+          "description": "Absolute path to the Graphviz dot executable"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "build:prod": "node esbuild.config.mjs production",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.3.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": ["**/tests/**/*.test.ts"]
+  }
+}
