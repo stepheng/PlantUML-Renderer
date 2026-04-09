@@ -24,7 +24,7 @@ A VSCode extension that renders `.puml` and `.iuml` files into a live preview pa
 
 ## Usage
 
-Open a `.puml` or `.iuml` file and run **PlantUML: Open Preview** from the command palette (`Cmd+Shift+P`). The preview opens to the right and updates as you edit.
+Open a `.puml` or `.iuml` file and run **PlantUML Renderer: Open Preview** from the command palette (`Cmd+Shift+P`). The preview opens to the right and updates as you edit.
 
 ### Pan and zoom
 
