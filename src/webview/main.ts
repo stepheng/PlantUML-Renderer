@@ -225,15 +225,22 @@ function clearHighlights(): void {
 }
 
 function highlightEl(el: SVGTextElement, fill: string): void {
-    const text  = el.textContent ?? '';
+    const text = el.textContent ?? '';
+    const qi   = searchQuery.toLowerCase();
+    if (!qi) return;
     const lower = text.toLowerCase();
-    const qi    = searchQuery.toLowerCase();
-    const idx   = lower.indexOf(qi);
+    let result = '';
+    let pos = 0;
+    let idx = lower.indexOf(qi, pos);
     if (idx === -1) return;
-    el.innerHTML =
-        escapeHtml(text.slice(0, idx)) +
-        `<tspan fill="${fill}">${escapeHtml(text.slice(idx, idx + searchQuery.length))}</tspan>` +
-        escapeHtml(text.slice(idx + searchQuery.length));
+    while (idx !== -1) {
+        result += escapeHtml(text.slice(pos, idx));
+        result += `<tspan fill="${fill}">${escapeHtml(text.slice(idx, idx + qi.length))}</tspan>`;
+        pos = idx + qi.length;
+        idx = lower.indexOf(qi, pos);
+    }
+    result += escapeHtml(text.slice(pos));
+    el.innerHTML = result;
 }
 
 function panToMatch(el: SVGTextElement): void {
