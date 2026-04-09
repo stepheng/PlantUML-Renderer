@@ -255,13 +255,13 @@ function activateMatch(idx: number): void {
         const prev = searchMatches[searchIndex];
         const orig = originalHTML.get(prev);
         if (orig !== undefined) { prev.innerHTML = orig; }
-        highlightEl(prev, '#ffee58');
+        highlightEl(prev, '#0369a1');
     }
     searchIndex = idx;
     const el   = searchMatches[idx];
     const orig = originalHTML.get(el);
     if (orig !== undefined) { el.innerHTML = orig; }
-    highlightEl(el, '#ff9800');
+    highlightEl(el, '#b91c1c');
     panToMatch(el);
     updateCounter();
 }
@@ -290,7 +290,7 @@ function applySearch(): void {
 
     for (const el of collected) {
         originalHTML.set(el, el.innerHTML);
-        highlightEl(el, '#ffee58');
+        highlightEl(el, '#0369a1');
         searchMatches.push(el);
     }
 
@@ -300,7 +300,7 @@ function applySearch(): void {
         const el   = searchMatches[0];
         const orig = originalHTML.get(el)!;
         el.innerHTML = orig;
-        highlightEl(el, '#ff9800');
+        highlightEl(el, '#b91c1c');
         panToMatch(el);
     }
     updateCounter();
