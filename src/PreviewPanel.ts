@@ -29,7 +29,7 @@ export class PreviewPanel {
             },
         );
         this._panel.webview.html = this._getHtml();
-        this._panel.webview.onDidReceiveMessage(msg => this._handleMessage(msg));
+        this._panel.webview.onDidReceiveMessage(msg => { this._handleMessage(msg).catch(err => console.error('PlantUML export error:', err)); });
         this._panel.onDidDispose(() => this._disposeCallback?.());
     }
 
