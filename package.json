@@ -3,6 +3,12 @@
   "displayName": "PlantUML Renderer",
   "description": "Live preview for .puml and .iuml files using a local PlantUML JAR",
   "version": "0.1.0",
+  "publisher": "StephenGurnett",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stepheng/PlantUML-Renderer"
+  },
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other"],
   "activationEvents": [
