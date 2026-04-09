@@ -200,6 +200,7 @@ function openSearch(): void {
 }
 
 function closeSearch(): void {
+    clearTimeout(searchDebounce);
     searchOpen = false;
     searchBar.classList.remove('open');
     clearHighlights();
