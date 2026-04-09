@@ -113,6 +113,24 @@ export class PreviewPanel {
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #1e1e1e; overflow: hidden; width: 100vw; height: 100vh; }
+        #search-bar {
+            display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+            background: rgba(30,30,30,0.95); border-bottom: 1px solid #444;
+            padding: 6px 10px; align-items: center; gap: 6px;
+        }
+        #search-bar.open { display: flex; }
+        #search-input {
+            flex: 1; background: #2d2d2d; color: #ccc;
+            border: 1px solid #555; border-radius: 3px;
+            padding: 3px 8px; font-size: 12px; outline: none;
+        }
+        #search-count { color: #888; font-size: 12px; min-width: 42px; text-align: center; }
+        #search-bar button {
+            background: rgba(40,40,40,0.85); color: #ccc;
+            border: 1px solid #555; border-radius: 4px;
+            padding: 4px 8px; font-size: 12px; cursor: pointer;
+        }
+        #search-bar button:hover { background: rgba(70,70,70,0.95); color: #fff; }
         #container {
             width: 100%; height: 100%;
             position: relative; overflow: hidden;
@@ -139,9 +157,17 @@ export class PreviewPanel {
     </style>
 </head>
 <body>
+    <div id="search-bar">
+        <input id="search-input" type="text" placeholder="Search diagram…" autocomplete="off" spellcheck="false">
+        <span id="search-count">0 / 0</span>
+        <button id="btn-prev">↑</button>
+        <button id="btn-next">↓</button>
+        <button id="btn-search-close">✕</button>
+    </div>
     <div id="container">
         <div id="error"></div>
         <div id="toolbar">
+            <button id="btn-search-open">⌕</button>
             <button id="btn-svg">Export SVG</button>
             <button id="btn-png">Export PNG</button>
             <button id="btn-reset">↺ Reset</button>
