@@ -25,7 +25,7 @@
     ],
     "commands": [
       {
-        "command": "plantuml.preview",
+        "command": "plantumlRenderer.preview",
         "title": "PlantUML: Open Preview"
       }
     ],

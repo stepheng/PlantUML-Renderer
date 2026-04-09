@@ -27,7 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         { dispose: () => pipe.kill() },
 
-        vscode.commands.registerCommand('plantuml.preview', () => {
+        vscode.commands.registerCommand('plantumlRenderer.preview', () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor) return;
             if (!panel) {
