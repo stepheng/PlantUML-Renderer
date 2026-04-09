@@ -40,7 +40,9 @@ function showSvg(svg: string) {
     const content = (svg.match(/<svg[\s\S]*<\/svg>/i) ?? [svg])[0];
     const tmp = document.createElement('div');
     tmp.innerHTML = content;
-    svgEl = tmp.querySelector('svg') as SVGSVGElement;
+    const found = tmp.querySelector('svg') as SVGSVGElement | null;
+    if (!found) { showError('Render error: no <svg> element in PlantUML output'); return; }
+    svgEl = found;
     svgEl.removeAttribute('width');
     svgEl.removeAttribute('height');
     Object.assign(svgEl.style, {
@@ -160,7 +162,7 @@ document.getElementById('btn-png')!.addEventListener('click', () => {
     canvas.height = Math.round(H * dpr);
     const ctx = canvas.getContext('2d')!;
     // Use base64 data URL to avoid blob: URL CSP issues in the webview sandbox
-    const svgDataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(currentSvg)));
+    const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(currentSvg);
     const img = new Image();
     img.onload = () => {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
