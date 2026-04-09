@@ -18,7 +18,8 @@ const searchCount   = document.getElementById('search-count')     as HTMLSpanEle
 
 let searchOpen    = false;
 let searchQuery   = '';
-let searchMatches: SVGTextElement[] = [];
+interface SearchMatch { el: SVGTextElement; occ: number; }
+let searchMatches: SearchMatch[] = [];
 let searchIndex   = -1;
 const originalHTML = new Map<SVGTextElement, string>();
 let searchDebounce: ReturnType<typeof setTimeout> | undefined;
@@ -224,19 +225,21 @@ function clearHighlights(): void {
     originalHTML.clear();
 }
 
-function highlightEl(el: SVGTextElement, fill: string): void {
+function highlightEl(el: SVGTextElement, fill: string, activeOcc = -1, activeFill = fill): void {
     const text = el.textContent ?? '';
     const qi   = searchQuery.toLowerCase();
     if (!qi) return;
     const lower = text.toLowerCase();
     let result = '';
     let pos = 0;
+    let occ = 0;
     let idx = lower.indexOf(qi, pos);
     if (idx === -1) return;
     while (idx !== -1) {
         result += escapeHtml(text.slice(pos, idx));
-        result += `<tspan fill="${fill}">${escapeHtml(text.slice(idx, idx + qi.length))}</tspan>`;
+        result += `<tspan fill="${occ === activeOcc ? activeFill : fill}">${escapeHtml(text.slice(idx, idx + qi.length))}</tspan>`;
         pos = idx + qi.length;
+        occ++;
         idx = lower.indexOf(qi, pos);
     }
     result += escapeHtml(text.slice(pos));
@@ -257,19 +260,19 @@ function panToMatch(el: SVGTextElement): void {
 
 function activateMatch(idx: number): void {
     if (searchMatches.length === 0) return;
-    // Restore previous active → normal yellow
+    // Restore previous active element → all blue
     if (searchIndex >= 0 && searchIndex < searchMatches.length) {
         const prev = searchMatches[searchIndex];
-        const orig = originalHTML.get(prev);
-        if (orig !== undefined) { prev.innerHTML = orig; }
-        highlightEl(prev, '#0369a1');
+        const orig = originalHTML.get(prev.el);
+        if (orig !== undefined) { prev.el.innerHTML = orig; }
+        highlightEl(prev.el, '#0369a1');
     }
     searchIndex = idx;
-    const el   = searchMatches[idx];
-    const orig = originalHTML.get(el);
-    if (orig !== undefined) { el.innerHTML = orig; }
-    highlightEl(el, '#b91c1c');
-    panToMatch(el);
+    const cur  = searchMatches[idx];
+    const orig = originalHTML.get(cur.el);
+    if (orig !== undefined) { cur.el.innerHTML = orig; }
+    highlightEl(cur.el, '#0369a1', cur.occ, '#b91c1c');
+    panToMatch(cur.el);
     updateCounter();
 }
 
@@ -297,18 +300,24 @@ function applySearch(): void {
 
     for (const el of collected) {
         originalHTML.set(el, el.innerHTML);
-        highlightEl(el, '#0369a1');
-        searchMatches.push(el);
+        const lower = (el.textContent ?? '').toLowerCase();
+        let pos = 0, occ = 0, idx = lower.indexOf(qi, 0);
+        while (idx !== -1) {
+            searchMatches.push({ el, occ });
+            occ++;
+            pos = idx + qi.length;
+            idx = lower.indexOf(qi, pos);
+        }
+        highlightEl(el, '#0369a1'); // all occurrences blue initially
     }
 
     if (searchMatches.length > 0) {
         searchIndex = 0;
-        // Activate first match (orange + pan) without touching previous index
-        const el   = searchMatches[0];
-        const orig = originalHTML.get(el)!;
-        el.innerHTML = orig;
-        highlightEl(el, '#b91c1c');
-        panToMatch(el);
+        const cur  = searchMatches[0];
+        const orig = originalHTML.get(cur.el)!;
+        cur.el.innerHTML = orig;
+        highlightEl(cur.el, '#0369a1', cur.occ, '#b91c1c');
+        panToMatch(cur.el);
     }
     updateCounter();
 }
