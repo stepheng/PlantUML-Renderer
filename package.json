@@ -2,7 +2,7 @@
   "name": "vscode-plantuml-renderer",
   "displayName": "PlantUML Renderer",
   "description": "Live preview for .puml and .iuml files using a local PlantUML JAR",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "StephenGurnett",
   "icon": "icon.png",
   "repository": {
