@@ -8,8 +8,16 @@ const errorEl = document.getElementById('error') as HTMLDivElement;
 let currentSvg = '';
 let svgEl: SVGSVGElement | null = null;
 let W = 800, H = 600;
+
+// Actual transform applied to the DOM (constrained by current diagram + container).
 let scale = 1, minScale = 0.1;
 let tx = 0, ty = 0;
+
+// User-desired transform — what the user last asked for. Re-applied on each
+// render so transient shrinkage of the diagram (e.g. mid-edit errors) does not
+// reset the view. Constrained into the actual values via commitFromDesired().
+let desiredScale = 1, desiredTx = 0, desiredTy = 0;
+let desiredInitialized = false;
 
 // Search state
 const searchBar     = document.getElementById('search-bar')      as HTMLDivElement;
@@ -69,10 +77,14 @@ function showSvg(svg: string) {
 
     requestAnimationFrame(() => {
         const cw = container.clientWidth || W;
-        scale = Math.min(1, cw / W);
-        minScale = scale;
-        tx = 0; ty = 0;
-        applyZoom();
+        const fit = Math.min(1, cw / W);
+        if (!desiredInitialized) {
+            desiredScale = fit;
+            desiredTx = 0; desiredTy = 0;
+            desiredInitialized = true;
+        }
+        commitFromDesired();
+        paint();
         if (searchOpen && searchQuery) applySearch();
     });
 }
@@ -81,44 +93,51 @@ function showSvg(svg: string) {
 // Pan / zoom
 // ---------------------------------------------------------------------------
 
-function clamp() {
+function commitFromDesired() {
     const cw = container.clientWidth;
     const ch = container.clientHeight;
-    tx = Math.min(0, Math.max(tx, cw - W * scale));
-    ty = Math.min(0, Math.max(ty, ch - H * scale));
+    minScale = Math.min(1, cw / W);
+    scale = Math.max(minScale, Math.min(20, desiredScale));
+    let nx = desiredTx;
+    let ny = desiredTy;
+    nx = Math.min(0, Math.max(nx, cw - W * scale));
+    ny = Math.min(0, Math.max(ny, ch - H * scale));
+    tx = nx; ty = ny;
 }
 
-function applyTranslate() {
+function syncDesiredFromActual() {
+    desiredScale = scale; desiredTx = tx; desiredTy = ty;
+}
+
+function paint() {
     if (!svgEl) return;
+    svgEl.style.width = `${W * scale}px`;
+    svgEl.style.height = `${H * scale}px`;
     svgEl.style.transform = `translate3d(${tx}px,${ty}px,0)`;
 }
 
-let zoomRafPending = false;
-function applyZoom() {
-    if (!svgEl) return;
-    clamp();
-    svgEl.style.width = `${W * scale}px`;
-    svgEl.style.height = `${H * scale}px`;
-    applyTranslate();
-}
-function scheduleZoom() {
-    if (zoomRafPending) return;
-    zoomRafPending = true;
-    requestAnimationFrame(() => { zoomRafPending = false; applyZoom(); });
+let paintRafPending = false;
+function schedulePaint() {
+    if (paintRafPending) return;
+    paintRafPending = true;
+    requestAnimationFrame(() => { paintRafPending = false; paint(); });
 }
 
 container.addEventListener('wheel', (e: WheelEvent) => {
     if (!svgEl) return;
     e.preventDefault();
+    // Anchor zoom to what's currently displayed, not stale desired values.
+    syncDesiredFromActual();
     const rect = container.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     const factor = e.deltaY < 0 ? 1.1 : 0.9;
-    const newScale = Math.max(minScale, Math.min(20, scale * factor));
-    tx = mx - (mx - tx) * (newScale / scale);
-    ty = my - (my - ty) * (newScale / scale);
-    scale = newScale;
-    scheduleZoom();
+    const newScale = Math.max(minScale, Math.min(20, desiredScale * factor));
+    desiredTx = mx - (mx - desiredTx) * (newScale / desiredScale);
+    desiredTy = my - (my - desiredTy) * (newScale / desiredScale);
+    desiredScale = newScale;
+    commitFromDesired();
+    schedulePaint();
 }, { passive: false });
 
 let dragging = false, dragX = 0, dragY = 0, startTx = 0, startTy = 0;
@@ -127,18 +146,19 @@ container.addEventListener('pointerdown', (e: PointerEvent) => {
     if (e.button !== 0 || !svgEl) return;
     if ((e.target as Element).closest('#toolbar')) return;
     dragging = true;
+    syncDesiredFromActual();
     dragX = e.clientX; dragY = e.clientY;
-    startTx = tx; startTy = ty;
+    startTx = desiredTx; startTy = desiredTy;
     container.setPointerCapture(e.pointerId);
     container.classList.add('grabbing');
 });
 
 container.addEventListener('pointermove', (e: PointerEvent) => {
     if (!dragging) return;
-    tx = startTx + (e.clientX - dragX);
-    ty = startTy + (e.clientY - dragY);
-    clamp();
-    applyTranslate();
+    desiredTx = startTx + (e.clientX - dragX);
+    desiredTy = startTy + (e.clientY - dragY);
+    commitFromDesired();
+    paint();
 });
 
 container.addEventListener('pointerup', () => {
@@ -148,19 +168,23 @@ container.addEventListener('pointerup', () => {
 
 container.addEventListener('dblclick', (e: MouseEvent) => {
     if ((e.target as Element).closest('#toolbar')) return;
-    scale = minScale;
-    tx = 0; ty = 0;
-    applyZoom();
+    resetView();
 });
+
+function resetView() {
+    const cw = container.clientWidth || W;
+    desiredScale = Math.min(1, cw / W);
+    desiredTx = 0; desiredTy = 0;
+    commitFromDesired();
+    paint();
+}
 
 // ---------------------------------------------------------------------------
 // Toolbar
 // ---------------------------------------------------------------------------
 
 document.getElementById('btn-reset')!.addEventListener('click', () => {
-    scale = minScale;
-    tx = 0; ty = 0;
-    applyZoom();
+    resetView();
 });
 
 document.getElementById('btn-svg')!.addEventListener('click', () => {
@@ -253,9 +277,11 @@ function panToMatch(el: SVGTextElement): void {
     const barH     = searchOpen ? searchBar.offsetHeight : 0;
     const targetCx = cRect.left + cRect.width / 2;
     const targetCy = cRect.top + barH + (cRect.height - barH) / 2;
-    tx += targetCx - (elRect.left + elRect.width / 2);
-    ty += targetCy - (elRect.top + elRect.height / 2);
-    applyZoom();
+    syncDesiredFromActual();
+    desiredTx += targetCx - (elRect.left + elRect.width / 2);
+    desiredTy += targetCy - (elRect.top + elRect.height / 2);
+    commitFromDesired();
+    paint();
 }
 
 function activateMatch(idx: number): void {
