@@ -112,7 +112,10 @@ export class PreviewPanel {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #1e1e1e; overflow: hidden; width: 100vw; height: 100vh; }
+        body {
+            background: #1e1e1e; overflow: hidden; width: 100vw; height: 100vh;
+            user-select: none; -webkit-user-select: none;
+        }
         #search-bar {
             display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 20;
             background: rgba(30,30,30,0.95); border-bottom: 1px solid #444;
@@ -123,6 +126,7 @@ export class PreviewPanel {
             flex: 1; background: #2d2d2d; color: #ccc;
             border: 1px solid #555; border-radius: 3px;
             padding: 3px 8px; font-size: 12px; outline: none;
+            user-select: text; -webkit-user-select: text;
         }
         #search-count { color: #888; font-size: 12px; min-width: 42px; text-align: center; }
         #search-bar button {
