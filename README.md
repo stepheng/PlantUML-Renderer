@@ -67,6 +67,13 @@ Click **Export SVG** or **Export PNG** in the floating toolbar. Files are saved 
 | `plantumlRenderer.jarPath` | _(required)_ | Absolute path to `plantuml.jar` |
 | `plantumlRenderer.javaPath` | `/usr/bin/java` | Path to the Java executable |
 | `plantumlRenderer.dotPath` | `/opt/homebrew/bin/dot` | Path to the Graphviz `dot` executable |
+| `plantumlRenderer.includeRoots` | `[]` | Additional absolute directories allowed for local `!include` files |
+
+Local includes are limited to the open workspace folder (or the diagram's
+directory when no workspace is open) and any explicitly configured include
+roots. Symlinks cannot escape those roots. PlantUML runs with its `SANDBOX`
+profile, which blocks the JAR from loading other files or URLs. Add a shared
+include directory to `includeRoots` when needed.
 
 ## Building from source
 

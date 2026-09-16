@@ -58,7 +58,7 @@ export class PlantUMLPipe {
     private ensureRunning() {
         if (this.proc && !this.proc.killed) return;
 
-        const args = ['-Dfile.encoding=UTF-8', '-jar', this.jarPath, '-tsvg', '-pipe'];
+        const args = ['-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX', '-jar', this.jarPath, '-tsvg', '-pipe'];
         if (this.dotPath) args.push('-graphvizdot', this.dotPath);
 
         this.proc = spawn(this.javaPath, args);

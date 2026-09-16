@@ -50,7 +50,11 @@ export class PreviewPanel {
         this._currentFilePath = doc.uri.fsPath;
         const source = doc.getText();
         try {
-            const resolved = await resolveIncludes(source, this._currentFilePath);
+            const workspaceRoot = vscode.workspace.getWorkspaceFolder(doc.uri)?.uri.fsPath
+                ?? path.dirname(this._currentFilePath);
+            const extraRoots = vscode.workspace.getConfiguration('plantumlRenderer')
+                .get<string[]>('includeRoots', []);
+            const resolved = await resolveIncludes(source, this._currentFilePath, [workspaceRoot, ...extraRoots]);
             let svg = this._cache.get(resolved);
             if (!svg) {
                 svg = await this._pipe.render(resolved);
