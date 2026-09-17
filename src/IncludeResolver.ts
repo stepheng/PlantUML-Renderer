@@ -8,7 +8,14 @@ export async function resolveIncludes(
     seen = new Set<string>(),
 ): Promise<string> {
     const dir = path.dirname(filePath);
-    const roots = await Promise.all(approvedRoots.map(root => fs.realpath(root)));
+    const roots = (await Promise.all(approvedRoots.map(async root => {
+        try {
+            return await fs.realpath(root);
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            return undefined;
+        }
+    }))).filter((root): root is string => root !== undefined);
     const lines = source.split('\n');
     const out: string[] = [];
 
@@ -31,7 +38,7 @@ export async function resolveIncludes(
                 if (seen.has(real)) continue;
                 const content = await fs.readFile(real, 'utf-8');
                 seen.add(real);
-                out.push(await resolveIncludes(content, real, roots, seen));
+                out.push(await resolveIncludes(content, real, [...new Set([...approvedRoots, ...roots])], seen));
                 continue;
             } catch (error) {
                 if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;

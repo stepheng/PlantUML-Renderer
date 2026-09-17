@@ -90,4 +90,47 @@ describe('resolveIncludes', () => {
         await expect(resolveIncludes('!include link.iuml', path.join(workspace, 'test.puml')))
             .rejects.toThrow('outside approved roots');
     });
+
+    test('renders a diagram without includes when an unused shared root is unavailable', async () => {
+        const src = '@startuml\nA -> B\n@enduml';
+        await expect(resolveIncludes(src, path.join(tmp, 'test.puml'), [tmp, path.join(tmp, 'unmounted')])).resolves.toBe(src);
+    });
+
+    test('resolves workspace includes when an unused shared root is missing', async () => {
+        await fs.writeFile(path.join(tmp, 'common.iuml'), 'A -> B');
+        await expect(resolveIncludes('!include common.iuml', path.join(tmp, 'test.puml'), [tmp, path.join(tmp, 'missing')]))
+            .resolves.toBe('A -> B');
+    });
+
+    test('preserves approved symlink aliases for nested absolute includes', async () => {
+        const real = path.join(tmp, 'real');
+        const alias = path.join(tmp, 'alias');
+        await fs.mkdir(real);
+        await fs.symlink(real, alias);
+        await fs.writeFile(path.join(real, 'a.iuml'), `!include ${alias}/b.iuml`);
+        await fs.writeFile(path.join(real, 'b.iuml'), 'A -> B');
+        await expect(resolveIncludes('!include a.iuml', path.join(alias, 'test.puml'), [alias])).resolves.toBe('A -> B');
+    });
+
+    test('resolves nested relative includes through an approved symlink root', async () => {
+        const real = path.join(tmp, 'real');
+        const alias = path.join(tmp, 'alias');
+        await fs.mkdir(real);
+        await fs.symlink(real, alias);
+        await fs.writeFile(path.join(real, 'a.iuml'), '!include b.iuml');
+        await fs.writeFile(path.join(real, 'b.iuml'), 'A -> B');
+        await expect(resolveIncludes('!include a.iuml', path.join(alias, 'test.puml'), [alias])).resolves.toBe('A -> B');
+    });
+
+    test('rejects nested symlink escapes with an approved alias root', async () => {
+        const real = path.join(tmp, 'real');
+        const alias = path.join(tmp, 'alias');
+        await fs.mkdir(real);
+        await fs.symlink(real, alias);
+        await fs.writeFile(path.join(tmp, 'outside.iuml'), 'private marker');
+        await fs.symlink(path.join(tmp, 'outside.iuml'), path.join(real, 'escape.iuml'));
+        await fs.writeFile(path.join(real, 'a.iuml'), `!include ${alias}/escape.iuml`);
+        await expect(resolveIncludes('!include a.iuml', path.join(alias, 'test.puml'), [alias]))
+            .rejects.toThrow('outside approved roots');
+    });
 });
