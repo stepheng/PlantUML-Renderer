@@ -33,7 +33,7 @@ describe('PlantUMLPipe', () => {
         mockProc.stdout.emit('data', Buffer.from('<svg viewBox="0 0 10 10"></svg>'));
         await p;
         expect(spawn).toHaveBeenCalledWith('/usr/bin/java', [
-            '-Dfile.encoding=UTF-8', '-jar', '/p/plantuml.jar',
+            '-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX', '-jar', '/p/plantuml.jar',
             '-tsvg', '-pipe', '-graphvizdot', '/usr/bin/dot',
         ]);
     });
@@ -44,7 +44,7 @@ describe('PlantUMLPipe', () => {
         mockProc.stdout.emit('data', Buffer.from('<svg></svg>'));
         await p;
         expect(spawn).toHaveBeenCalledWith('/usr/bin/java', [
-            '-Dfile.encoding=UTF-8', '-jar', '/p/plantuml.jar', '-tsvg', '-pipe',
+            '-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX', '-jar', '/p/plantuml.jar', '-tsvg', '-pipe',
         ]);
     });
 

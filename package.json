@@ -52,6 +52,12 @@
           "type": "string",
           "default": "/opt/homebrew/bin/dot",
           "description": "Absolute path to the Graphviz dot executable"
+        },
+        "plantumlRenderer.includeRoots": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Additional absolute directories allowed for local !include files"
         }
       }
     }
