@@ -1,3 +1,5 @@
+import DOMPurify from 'dompurify';
+
 declare function acquireVsCodeApi(): { postMessage(msg: unknown): void };
 
 const vscode = acquireVsCodeApi();
@@ -50,7 +52,7 @@ function showError(msg: string) {
 
 function showSvg(svg: string) {
     errorEl.style.display = 'none';
-    currentSvg = svg;
+    currentSvg = '';
 
     if (svgEl) svgEl.remove();
 
@@ -59,10 +61,14 @@ function showSvg(svg: string) {
     H = vb ? parseFloat(vb[2]) : parseFloat(svg.match(/\bheight="([\d.]+)"/)?.[1] ?? '600');
 
     const content = (svg.match(/<svg[\s\S]*<\/svg>/i) ?? [svg])[0];
-    const tmp = document.createElement('div');
-    tmp.innerHTML = content;
-    const found = tmp.querySelector('svg') as SVGSVGElement | null;
+    const clean = DOMPurify.sanitize(content, {
+        USE_PROFILES: { svg: true, svgFilters: true },
+        FORBID_TAGS: ['style'],
+        RETURN_DOM_FRAGMENT: true,
+    });
+    const found = clean.querySelector('svg') as SVGSVGElement | null;
     if (!found) { showError('Render error: no <svg> element in PlantUML output'); return; }
+    currentSvg = new XMLSerializer().serializeToString(found);
     svgEl = found;
     svgEl.removeAttribute('width');
     svgEl.removeAttribute('height');
