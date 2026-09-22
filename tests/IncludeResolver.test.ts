@@ -26,6 +26,13 @@ describe('resolveIncludes', () => {
         expect(result).toBe('A -> B\nC -> D');
     });
 
+    test('treats !include_once as an alias for !include', async () => {
+        await fs.writeFile(path.join(tmp, 'common.iuml'), 'A -> B');
+        const src = '!include_once common.iuml\nC -> D';
+        const result = await resolveIncludes(src, path.join(tmp, 'test.puml'));
+        expect(result).toBe('A -> B\nC -> D');
+    });
+
     test('handles leading whitespace on !include line', async () => {
         await fs.writeFile(path.join(tmp, 'common.iuml'), 'content');
         const src = '  !include common.iuml';
