@@ -20,7 +20,7 @@ export async function resolveIncludes(
     const out: string[] = [];
 
     for (const line of lines) {
-        const m = line.match(/^\s*!include\s+(.+)$/);
+        const m = line.match(/^\s*!include(?:_once)?\s+(.+)$/);
         if (m) {
             const abs = path.resolve(dir, m[1].trim());
             const inside = (candidate: string, root: string) => {
