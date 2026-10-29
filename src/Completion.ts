@@ -22,7 +22,8 @@ const VARIABLE = /^\s*!(?:global\s+|local\s+)?(\$\w+)\s*\??=/gm;
 // Guards added by IncludeResolver, not the user's variables
 const INTERNAL = /^\$__include_/;
 
-const escapeSnippet = (s: string) => s.replace(/\$/g, '\\$');
+// Characters with meaning in VS Code snippet syntax
+const escapeSnippet = (s: string) => s.replace(/[\\$}]/g, '\\$&');
 
 /** Procedures, variables and element names declared in `text` (a document with its includes inlined). */
 export function definitions(text: string): Definitions {

@@ -56,6 +56,11 @@ describe('suggest', () => {
         expect(labels(r).some(l => l.startsWith('$__include_'))).toBe(false);
     });
 
+    test('escapes snippet syntax characters in procedure parameters', () => {
+        const r = suggest('$p', definitions('!procedure $p($a\\b, $c}d)'));
+        expect(r.items[0].snippet).toBe('\\$p(${1:\\$a\\\\b}, ${2:\\$c\\}d})');
+    });
+
     test('lists a procedure once when a file is inlined more than once, but keeps overloads', () => {
         const file = '!procedure $datatype($name)\n!endprocedure\n!procedure $datatype($name, $type)\n!endprocedure';
         const defs = definitions(`${file}\n${file}`);
