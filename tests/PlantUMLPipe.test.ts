@@ -48,6 +48,28 @@ describe('PlantUMLPipe', () => {
         ]);
     });
 
+    test('spawns native binary directly, without java or -jar, when nativePath is set', async () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '/usr/bin/dot', '/p/plantuml-native');
+        const p = pipe.render('@startuml\nA -> B\n@enduml');
+        mockProc.stdout.emit('data', Buffer.from('<svg></svg>'));
+        await p;
+        expect(spawn).toHaveBeenCalledWith('/p/plantuml-native', [
+            '-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX',
+            '-tsvg', '-pipe', '-graphvizdot', '/usr/bin/dot',
+        ]);
+    });
+
+    test('selects Smetana layout and skips graphvizdot when layout is smetana', async () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '/usr/bin/dot', '/p/plantuml-native', 'smetana');
+        const p = pipe.render('@startuml\nA -> B\n@enduml');
+        mockProc.stdout.emit('data', Buffer.from('<svg></svg>'));
+        await p;
+        expect(spawn).toHaveBeenCalledWith('/p/plantuml-native', [
+            '-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX',
+            '-tsvg', '-pipe', '-Playout=smetana',
+        ]);
+    });
+
     test('wraps source in @startuml/@enduml when missing', async () => {
         const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
         pipe.render('A -> B');
@@ -62,6 +84,36 @@ describe('PlantUMLPipe', () => {
         expect(mockProc.stdin.write).toHaveBeenCalledWith(
             '@startuml\nA -> B\n@enduml\n',
         );
+    });
+
+    test('appends @enduml when it is missing, so a mid-edit source cannot stall the pipe', () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+        pipe.render('@startuml\nA -> B');
+        expect(mockProc.stdin.write).toHaveBeenCalledWith('@startuml\nA -> B\n@enduml\n');
+    });
+
+    test('appends @enduml when the end line is only partly typed', () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+        pipe.render('@startuml\nA -> B\n@endu');
+        expect(mockProc.stdin.write).toHaveBeenCalledWith('@startuml\nA -> B\n@endu\n@enduml\n');
+    });
+
+    test('keeps non-uml diagram types and terminates them with their own end tag', () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+        pipe.render('@startgantt\n[T] lasts 2 days');
+        expect(mockProc.stdin.write).toHaveBeenCalledWith('@startgantt\n[T] lasts 2 days\n@endgantt\n');
+    });
+
+    test('does not wrap a complete non-uml diagram in @startuml', () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+        pipe.render('@startmindmap\n* Root\n@endmindmap');
+        expect(mockProc.stdin.write).toHaveBeenCalledWith('@startmindmap\n* Root\n@endmindmap\n');
+    });
+
+    test('sends only the first diagram block, so PlantUML returns exactly one SVG per render', () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+        pipe.render("' note\n@startuml\nA -> B\n@enduml\n\n@startuml\nC -> D\n@enduml\n");
+        expect(mockProc.stdin.write).toHaveBeenCalledWith('@startuml\nA -> B\n@enduml\n');
     });
 
     test('resolves with SVG string on stdout', async () => {

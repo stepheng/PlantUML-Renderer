@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process';
+import { firstBlock } from './DiagramBlock';
 
 interface Pending {
     resolve: (s: string) => void;
@@ -7,6 +8,18 @@ interface Pending {
 
 interface QueueItem extends Pending {
     source: string;
+}
+
+// Send exactly one terminated diagram per render. In -pipe mode PlantUML emits
+// nothing until it reads the matching @end line, so a source without one (e.g.
+// mid-edit) would stall every later render; and each extra block in the source
+// would emit an extra SVG, pairing every later response with the wrong request.
+function terminate(source: string): string {
+    const lines = source.split('\n');
+    const block = firstBlock(lines);
+    if (!block) return `@startuml\n${source}\n@enduml`;
+    if (block.end < 0) return [...lines.slice(block.start), `@end${block.type}`].join('\n');
+    return lines.slice(block.start, block.end + 1).join('\n');
 }
 
 export class PlantUMLPipe {
@@ -19,6 +32,8 @@ export class PlantUMLPipe {
         private readonly javaPath: string,
         private readonly jarPath: string,
         private readonly dotPath: string,
+        private readonly nativePath = '',
+        private readonly layout: 'graphviz' | 'smetana' = 'graphviz',
     ) {}
 
     render(source: string): Promise<string> {
@@ -44,10 +59,7 @@ export class PlantUMLPipe {
         this.pending = item;
         try {
             this.ensureRunning();
-            const wrapped = /^\s*@startuml/i.test(item.source)
-                ? item.source
-                : `@startuml\n${item.source}\n@enduml`;
-            this.proc!.stdin!.write(wrapped + '\n');
+            this.proc!.stdin!.write(terminate(item.source) + '\n');
         } catch (err) {
             this.pending = null;
             item.reject(err instanceof Error ? err : new Error(String(err)));
@@ -58,10 +70,15 @@ export class PlantUMLPipe {
     private ensureRunning() {
         if (this.proc && !this.proc.killed) return;
 
-        const args = ['-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX', '-jar', this.jarPath, '-tsvg', '-pipe'];
-        if (this.dotPath) args.push('-graphvizdot', this.dotPath);
+        // A native (GraalVM) binary takes the same -D flags and runs without java -jar
+        const args = ['-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX'];
+        if (!this.nativePath) args.push('-jar', this.jarPath);
+        args.push('-tsvg', '-pipe');
+        // Smetana is PlantUML's built-in port of dot: no external process per render
+        if (this.layout === 'smetana') args.push('-Playout=smetana');
+        else if (this.dotPath) args.push('-graphvizdot', this.dotPath);
 
-        this.proc = spawn(this.javaPath, args);
+        this.proc = spawn(this.nativePath || this.javaPath, args);
         this.outBuf = '';
 
         this.proc.stdout!.on('data', (chunk: Buffer) => {

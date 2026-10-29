@@ -8,20 +8,20 @@ function getConfig() {
         jarPath:  cfg.get<string>('jarPath', ''),
         javaPath: cfg.get<string>('javaPath', '/usr/bin/java'),
         dotPath:  cfg.get<string>('dotPath', '/opt/homebrew/bin/dot'),
+        nativePath: cfg.get<string>('nativePath', ''),
+        layoutEngine: cfg.get<'graphviz' | 'smetana'>('layoutEngine', 'graphviz'),
     };
 }
 
-let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-
 export function activate(context: vscode.ExtensionContext) {
     let cfg = getConfig();
-    if (!cfg.jarPath) {
+    if (!cfg.jarPath && !cfg.nativePath) {
         vscode.window.showErrorMessage(
-            'PlantUML Renderer: plantumlRenderer.jarPath is not set. Configure it in Settings, then reload the window.',
+            'PlantUML Renderer: set plantumlRenderer.nativePath or plantumlRenderer.jarPath in Settings, then reload the window.',
         );
         return;
     }
-    let pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath);
+    let pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath, cfg.nativePath, cfg.layoutEngine);
     let panel: PreviewPanel | null = null;
 
     context.subscriptions.push(
@@ -41,11 +41,8 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.workspace.onDidChangeTextDocument(e => {
             const lang = e.document.languageId;
             if (lang !== 'plantuml' && lang !== 'plantuml-include') return;
-            if (!panel) return;
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                panel?.renderDocument(e.document);
-            }, 500);
+            // No debounce: PreviewPanel coalesces renders and holds back mid-edit errors
+            panel?.renderDocument(e.document);
         }),
 
         // Re-render when the user switches to a different .puml/.iuml tab
@@ -58,15 +55,12 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.workspace.onDidChangeConfiguration(e => {
             if (!e.affectsConfiguration('plantumlRenderer')) return;
-            clearTimeout(debounceTimer);
             pipe.kill();
             cfg = getConfig();
-            pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath);
+            pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath, cfg.nativePath, cfg.layoutEngine);
             panel?.setPipe(pipe);
         }),
     );
 }
 
-export function deactivate() {
-    clearTimeout(debounceTimer);
-}
+export function deactivate() {}
