@@ -75,6 +75,30 @@ describe('PlantUMLPipe', () => {
         );
     });
 
+    test('appends @enduml when it is missing, so a mid-edit source cannot stall the pipe', () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+        pipe.render('@startuml\nA -> B');
+        expect(mockProc.stdin.write).toHaveBeenCalledWith('@startuml\nA -> B\n@enduml\n');
+    });
+
+    test('appends @enduml when the end line is only partly typed', () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+        pipe.render('@startuml\nA -> B\n@endu');
+        expect(mockProc.stdin.write).toHaveBeenCalledWith('@startuml\nA -> B\n@endu\n@enduml\n');
+    });
+
+    test('keeps non-uml diagram types and terminates them with their own end tag', () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+        pipe.render('@startgantt\n[T] lasts 2 days');
+        expect(mockProc.stdin.write).toHaveBeenCalledWith('@startgantt\n[T] lasts 2 days\n@endgantt\n');
+    });
+
+    test('does not wrap a complete non-uml diagram in @startuml', () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+        pipe.render('@startmindmap\n* Root\n@endmindmap');
+        expect(mockProc.stdin.write).toHaveBeenCalledWith('@startmindmap\n* Root\n@endmindmap\n');
+    });
+
     test('resolves with SVG string on stdout', async () => {
         const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
         const p = pipe.render('A -> B');

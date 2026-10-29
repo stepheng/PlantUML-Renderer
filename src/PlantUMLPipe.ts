@@ -9,6 +9,14 @@ interface QueueItem extends Pending {
     source: string;
 }
 
+// In -pipe mode PlantUML emits nothing until it reads the matching @end line, so a
+// source without one (e.g. mid-edit) would stall every later render.
+function terminate(source: string): string {
+    const type = source.match(/^\s*@start(\w+)/i)?.[1];
+    if (!type) return `@startuml\n${source}\n@enduml`;
+    return new RegExp(`^\\s*@end${type}\\s*$`, 'im').test(source) ? source : `${source}\n@end${type}`;
+}
+
 export class PlantUMLPipe {
     private proc: ChildProcess | null = null;
     private outBuf = '';
@@ -45,10 +53,7 @@ export class PlantUMLPipe {
         this.pending = item;
         try {
             this.ensureRunning();
-            const wrapped = /^\s*@startuml/i.test(item.source)
-                ? item.source
-                : `@startuml\n${item.source}\n@enduml`;
-            this.proc!.stdin!.write(wrapped + '\n');
+            this.proc!.stdin!.write(terminate(item.source) + '\n');
         } catch (err) {
             this.pending = null;
             item.reject(err instanceof Error ? err : new Error(String(err)));
