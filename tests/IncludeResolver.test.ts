@@ -140,4 +140,24 @@ describe('resolveIncludes', () => {
         await expect(resolveIncludes('!include a.iuml', path.join(alias, 'test.puml'), [alias]))
             .rejects.toThrow('outside approved roots');
     });
+
+    test('inlines only the body of an included file wrapped in @startuml/@enduml, as PlantUML does', async () => {
+        await fs.writeFile(path.join(tmp, 'inner.iuml'), "' header\n@startuml\nA -> B\n@enduml\nafter end");
+        const src = '@startuml\n!include inner.iuml\nB -> C\n@enduml';
+        const result = await resolveIncludes(src, path.join(tmp, 'test.puml'));
+        expect(result).toBe('@startuml\nA -> B\nB -> C\n@enduml');
+    });
+
+    test('inlines only the first block of an included file with several diagrams', async () => {
+        await fs.writeFile(path.join(tmp, 'two.iuml'), '@startuml\nfirst\n@enduml\n@startuml\nsecond\n@enduml');
+        const result = await resolveIncludes('!include two.iuml', path.join(tmp, 'test.puml'));
+        expect(result).toBe('first');
+    });
+
+    test('applies the same unwrapping to nested includes', async () => {
+        await fs.writeFile(path.join(tmp, 'leaf.iuml'), '@startuml\nleaf\n@enduml');
+        await fs.writeFile(path.join(tmp, 'mid.iuml'), '@startuml\n!include leaf.iuml\nmid\n@enduml');
+        const result = await resolveIncludes('!include mid.iuml\nouter', path.join(tmp, 'test.puml'));
+        expect(result).toBe('leaf\nmid\nouter');
+    });
 });

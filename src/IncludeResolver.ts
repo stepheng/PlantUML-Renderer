@@ -1,5 +1,15 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { firstBlock } from './DiagramBlock';
+
+// Like PlantUML, take only the first block's body from a file wrapped in @start/@end;
+// inlining the wrapper would end the including diagram at the included @end line.
+function unwrap(content: string): string {
+    const lines = content.split('\n');
+    const block = firstBlock(lines);
+    if (!block) return content;
+    return lines.slice(block.start + 1, block.end < 0 ? undefined : block.end).join('\n');
+}
 
 export async function resolveIncludes(
     source: string,
@@ -38,7 +48,7 @@ export async function resolveIncludes(
                 if (seen.has(real)) continue;
                 const content = await fs.readFile(real, 'utf-8');
                 seen.add(real);
-                out.push(await resolveIncludes(content, real, [...new Set([...approvedRoots, ...roots])], seen));
+                out.push(await resolveIncludes(unwrap(content), real, [...new Set([...approvedRoots, ...roots])], seen));
                 continue;
             } catch (error) {
                 if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
