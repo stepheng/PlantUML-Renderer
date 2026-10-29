@@ -9,6 +9,7 @@ function getConfig() {
         javaPath: cfg.get<string>('javaPath', '/usr/bin/java'),
         dotPath:  cfg.get<string>('dotPath', '/opt/homebrew/bin/dot'),
         nativePath: cfg.get<string>('nativePath', ''),
+        layoutEngine: cfg.get<'graphviz' | 'smetana'>('layoutEngine', 'graphviz'),
     };
 }
 
@@ -20,7 +21,7 @@ export function activate(context: vscode.ExtensionContext) {
         );
         return;
     }
-    let pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath, cfg.nativePath);
+    let pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath, cfg.nativePath, cfg.layoutEngine);
     let panel: PreviewPanel | null = null;
 
     context.subscriptions.push(
@@ -56,7 +57,7 @@ export function activate(context: vscode.ExtensionContext) {
             if (!e.affectsConfiguration('plantumlRenderer')) return;
             pipe.kill();
             cfg = getConfig();
-            pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath, cfg.nativePath);
+            pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath, cfg.nativePath, cfg.layoutEngine);
             panel?.setPipe(pipe);
         }),
     );

@@ -58,6 +58,16 @@
           "default": "/opt/homebrew/bin/dot",
           "description": "Absolute path to the Graphviz dot executable"
         },
+        "plantumlRenderer.layoutEngine": {
+          "type": "string",
+          "enum": ["graphviz", "smetana"],
+          "enumDescriptions": [
+            "Graphviz dot (external process per render; PlantUML's reference layout)",
+            "Smetana, PlantUML's built-in port of dot (no Graphviz needed, faster redraws, layouts can differ)"
+          ],
+          "default": "graphviz",
+          "description": "Layout engine for class, component, state, use case and other graph diagrams"
+        },
         "plantumlRenderer.includeRoots": {
           "type": "array",
           "items": { "type": "string" },

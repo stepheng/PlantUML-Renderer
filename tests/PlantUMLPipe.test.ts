@@ -59,6 +59,17 @@ describe('PlantUMLPipe', () => {
         ]);
     });
 
+    test('selects Smetana layout and skips graphvizdot when layout is smetana', async () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '/usr/bin/dot', '/p/plantuml-native', 'smetana');
+        const p = pipe.render('@startuml\nA -> B\n@enduml');
+        mockProc.stdout.emit('data', Buffer.from('<svg></svg>'));
+        await p;
+        expect(spawn).toHaveBeenCalledWith('/p/plantuml-native', [
+            '-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX',
+            '-tsvg', '-pipe', '-Playout=smetana',
+        ]);
+    });
+
     test('wraps source in @startuml/@enduml when missing', async () => {
         const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
         pipe.render('A -> B');

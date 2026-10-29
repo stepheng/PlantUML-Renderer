@@ -33,6 +33,7 @@ export class PlantUMLPipe {
         private readonly jarPath: string,
         private readonly dotPath: string,
         private readonly nativePath = '',
+        private readonly layout: 'graphviz' | 'smetana' = 'graphviz',
     ) {}
 
     render(source: string): Promise<string> {
@@ -73,7 +74,9 @@ export class PlantUMLPipe {
         const args = ['-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX'];
         if (!this.nativePath) args.push('-jar', this.jarPath);
         args.push('-tsvg', '-pipe');
-        if (this.dotPath) args.push('-graphvizdot', this.dotPath);
+        // Smetana is PlantUML's built-in port of dot: no external process per render
+        if (this.layout === 'smetana') args.push('-Playout=smetana');
+        else if (this.dotPath) args.push('-graphvizdot', this.dotPath);
 
         this.proc = spawn(this.nativePath || this.javaPath, args);
         this.outBuf = '';

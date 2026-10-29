@@ -77,6 +77,7 @@ Click **Export SVG** or **Export PNG** in the floating toolbar. Files are saved 
 | `plantumlRenderer.jarPath` | _(required unless `nativePath` is set)_ | Absolute path to `plantuml.jar` |
 | `plantumlRenderer.javaPath` | `/usr/bin/java` | Path to the Java executable |
 | `plantumlRenderer.dotPath` | `/opt/homebrew/bin/dot` | Path to the Graphviz `dot` executable |
+| `plantumlRenderer.layoutEngine` | `graphviz` | `graphviz`, or `smetana` for PlantUML's built-in layout: no Graphviz needed and faster redraws, but layouts can differ |
 | `plantumlRenderer.includeRoots` | `[]` | Additional absolute directories allowed for local `!include` files |
 
 Local includes are limited to the open workspace folder (or the diagram's
