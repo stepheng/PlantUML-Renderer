@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { registerCompletion } from './CompletionProvider';
 import { PlantUMLPipe } from './PlantUMLPipe';
 import { PreviewPanel } from './PreviewPanel';
 
@@ -14,6 +15,8 @@ function getConfig() {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+    // Editing help works without PlantUML configured
+    context.subscriptions.push(registerCompletion());
     let cfg = getConfig();
     if (!cfg.jarPath && !cfg.nativePath) {
         vscode.window.showErrorMessage(

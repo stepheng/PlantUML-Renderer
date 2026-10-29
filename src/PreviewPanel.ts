@@ -1,10 +1,21 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { resolveIncludes } from './IncludeResolver';
+import { includeRoots } from './includeRoots';
 import { LiveRender } from './LiveRender';
 import { PlantUMLPipe } from './PlantUMLPipe';
+import { previewColumn } from './previewColumn';
 
 const CACHE_LIMIT = 30;
+
+function targetColumn(): vscode.ViewColumn {
+    const groups = vscode.window.tabGroups.all.map(g => ({
+        viewColumn: g.viewColumn,
+        isActive: g.isActive,
+        webviewTypes: g.tabs.flatMap(t => t.input instanceof vscode.TabInputWebview ? [t.input.viewType] : []),
+    }));
+    return previewColumn(groups) ?? vscode.ViewColumn.Beside;
+}
 
 export class PreviewPanel {
     private readonly _panel: vscode.WebviewPanel;
@@ -22,7 +33,7 @@ export class PreviewPanel {
         this._panel = vscode.window.createWebviewPanel(
             'plantumlPreview',
             'PlantUML Preview',
-            vscode.ViewColumn.Beside,
+            { viewColumn: targetColumn(), preserveFocus: true },
             {
                 enableScripts: true,
                 localResourceRoots: [
@@ -50,7 +61,8 @@ export class PreviewPanel {
     }
 
     reveal() {
-        this._panel.reveal(vscode.ViewColumn.Beside, true);
+        // Keep the panel in whichever group it (or the user) settled on
+        this._panel.reveal(undefined, true);
     }
 
     renderDocument(doc: vscode.TextDocument) {
@@ -59,11 +71,7 @@ export class PreviewPanel {
         this._currentFilePath = filePath;
         const source = doc.getText();
         this._live.update(async () => {
-            const workspaceRoot = vscode.workspace.getWorkspaceFolder(doc.uri)?.uri.fsPath
-                ?? path.dirname(filePath);
-            const extraRoots = vscode.workspace.getConfiguration('plantumlRenderer')
-                .get<string[]>('includeRoots', []);
-            const resolved = await resolveIncludes(source, filePath, [workspaceRoot, ...extraRoots]);
+            const resolved = await resolveIncludes(source, filePath, includeRoots(doc.uri));
             let svg = this._cache.get(resolved);
             if (!svg) {
                 svg = await this._pipe.render(resolved);

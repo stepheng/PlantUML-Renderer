@@ -1,0 +1,175 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "PlantUML",
+  "scopeName": "source.plantuml",
+  "comment": "Keyword lists come from src/language.json; tests/grammar.test.ts checks they stay in sync.",
+  "patterns": [
+    {
+      "include": "#block-comment"
+    },
+    {
+      "include": "#line-comment"
+    },
+    {
+      "include": "#diagram-tag"
+    },
+    {
+      "include": "#include"
+    },
+    {
+      "include": "#procedure-definition"
+    },
+    {
+      "include": "#directive"
+    },
+    {
+      "include": "#string"
+    },
+    {
+      "include": "#label"
+    },
+    {
+      "include": "#stereotype"
+    },
+    {
+      "include": "#color"
+    },
+    {
+      "include": "#skinparam"
+    },
+    {
+      "include": "#function-call"
+    },
+    {
+      "include": "#builtin-function"
+    },
+    {
+      "include": "#variable"
+    },
+    {
+      "include": "#arrow"
+    },
+    {
+      "include": "#type"
+    },
+    {
+      "include": "#keyword"
+    }
+  ],
+  "repository": {
+    "block-comment": {
+      "name": "comment.block.plantuml",
+      "begin": "/'",
+      "end": "'/"
+    },
+    "line-comment": {
+      "name": "comment.line.single-quote.plantuml",
+      "match": "^\\s*'.*$"
+    },
+    "diagram-tag": {
+      "name": "keyword.control.diagram.plantuml",
+      "match": "^\\s*@(?:start|end)\\w+\\b"
+    },
+    "include": {
+      "match": "^\\s*(!(?:include_many|include_once|includedef|includesub|includeurl|include|import|theme))\\b\\s*(.*?)\\s*$",
+      "captures": {
+        "1": {
+          "name": "keyword.control.directive.include.plantuml"
+        },
+        "2": {
+          "name": "string.unquoted.include.plantuml"
+        }
+      }
+    },
+    "procedure-definition": {
+      "match": "^\\s*(!(?:unquoted\\s+)?(?:procedure|function))\\s+(\\$?\\w+)",
+      "captures": {
+        "1": {
+          "name": "keyword.control.directive.plantuml"
+        },
+        "2": {
+          "name": "entity.name.function.plantuml"
+        }
+      }
+    },
+    "directive": {
+      "name": "keyword.control.directive.plantuml",
+      "match": "!(?:enddefinelong|endprocedure|dump_memory|endfunction|definelong|endwhile|startsub|foreach|assert|define|elseif|endfor|endsub|global|ifndef|option|pragma|return|endif|final|ifdef|local|undef|while|else|exit|end|log|if)\\b"
+    },
+    "string": {
+      "name": "string.quoted.double.plantuml",
+      "begin": "\"",
+      "end": "\"|$",
+      "patterns": [
+        {
+          "include": "#function-call"
+        },
+        {
+          "include": "#variable"
+        },
+        {
+          "include": "#builtin-function"
+        }
+      ]
+    },
+    "label": {
+      "name": "string.unquoted.label.plantuml",
+      "begin": "(?<=\\s):(?=\\s)",
+      "end": "$",
+      "patterns": [
+        {
+          "include": "#function-call"
+        },
+        {
+          "include": "#variable"
+        },
+        {
+          "include": "#builtin-function"
+        }
+      ]
+    },
+    "stereotype": {
+      "name": "entity.other.attribute-name.stereotype.plantuml",
+      "match": "<<[^<>]+>>"
+    },
+    "color": {
+      "name": "constant.other.color.plantuml",
+      "match": "#(?:[0-9A-Fa-f]{3,8}\\b|[A-Za-z]\\w*)"
+    },
+    "skinparam": {
+      "match": "^\\s*(skinparam)\\s+(\\w+)",
+      "captures": {
+        "1": {
+          "name": "keyword.other.skinparam.plantuml"
+        },
+        "2": {
+          "name": "support.type.property-name.skinparam.plantuml"
+        }
+      }
+    },
+    "function-call": {
+      "name": "variable.function.plantuml",
+      "match": "\\$\\w+(?=\\s*\\()"
+    },
+    "builtin-function": {
+      "name": "support.function.builtin.plantuml",
+      "match": "%\\w+"
+    },
+    "variable": {
+      "name": "variable.other.plantuml",
+      "match": "\\$\\w+"
+    },
+    "arrow": {
+      "name": "keyword.operator.arrow.plantuml",
+      "match": "(?:<\\|?|<<|\\*|(?<!\\w)[ox]|\\+|#|\\}|\\{|\\^)[-.=]+(?:\\[[^\\]]*\\])?(?:(?:up|down|left|right|u|d|l|r)(?=[-.=]))?[-.=]*(?:\\|?>|>>|\\*|[ox](?!\\w)|\\+|#|\\{|\\}|\\^|\\\\\\\\|//)?|[-.=]+(?:\\[[^\\]]*\\])?(?:(?:up|down|left|right|u|d|l|r)(?=[-.=]))?[-.=]*(?:\\|?>|>>|\\*|[ox](?!\\w)|\\+|#|\\{|\\}|\\^|\\\\\\\\|//)|-{2,}|={2,}|\\.{2,}"
+    },
+    "type": {
+      "name": "storage.type.element.plantuml",
+      "match": "(?<![\\w$%!@#.-])(?:relationship|collections|participant|annotation|packetdiag|archimate|component|dataclass|exception|interface|metaclass|rectangle|abstract|artifact|boundary|database|protocol|concise|control|diamond|hexagon|network|package|process|storage|usecase|action|analog|binary|entity|folder|nwdiag|object|person|record|robust|struct|actor|agent|class|clock|cloud|frame|label|queue|stack|state|card|enum|file|json|node|map)(?![\\w-])"
+    },
+    "keyword": {
+      "name": "keyword.other.plantuml",
+      "match": "(?<![\\w$%!@#.-])(?:left\\s+to\\s+right\\s+direction|top\\s+to\\s+bottom\\s+direction|floating\\s+note|allow_mixing|allowmixing|description|orientation|repeatwhile|stereotypes|annotation|attributes|autonumber|deactivate|endcaption|stereotype|attribute|endfooter|endheader|endlegend|endswitch|highlight|mainframe|namespace|partition|protected|skinparam|stackMode|activate|backward|critical|endmerge|endtitle|endwhile|together|address|caption|circled|circles|destroy|endfork|footbox|members|methods|newpage|package|private|scatter|spacing|v2\\-axis|across|bottom|center|circle|create|dashed|detach|dotted|elseif|fields|footer|h\\-axis|header|italic|legend|member|method|normal|public|repeat|return|rotate|sprite|switch|v\\-axis|again|break|color|empty|endif|false|field|group|hnote|label|merge|order|plain|right|rnote|shape|split|start|style|ticks|title|while|also|area|bold|case|down|else|fork|goto|grid|hide|kill|left|line|link|loop|note|null|over|page|show|skin|stop|then|true|alt|bar|box|end|not|opt|par|ref|top|as|at|if|is|of|on|up)(?![\\w-])"
+    }
+  }
+}

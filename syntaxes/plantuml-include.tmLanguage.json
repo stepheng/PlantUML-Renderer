@@ -1,0 +1,5 @@
+{
+  "name": "PlantUML Include",
+  "scopeName": "source.plantuml-include",
+  "patterns": [{ "include": "source.plantuml" }]
+}
