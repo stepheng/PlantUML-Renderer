@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { resolveIncludes } from './IncludeResolver';
+import { LiveRender } from './LiveRender';
 import { PlantUMLPipe } from './PlantUMLPipe';
 
 const CACHE_LIMIT = 30;
@@ -11,6 +12,7 @@ export class PreviewPanel {
     private readonly _cache = new Map<string, string>();
     private _currentFilePath: string | undefined;
     private _disposeCallback: (() => void) | undefined;
+    private readonly _live: LiveRender;
 
     constructor(
         private readonly _context: vscode.ExtensionContext,
@@ -29,8 +31,12 @@ export class PreviewPanel {
             },
         );
         this._panel.webview.html = this._getHtml();
+        this._live = new LiveRender(msg => { this._panel.webview.postMessage(msg); });
         this._panel.webview.onDidReceiveMessage(msg => { this._handleMessage(msg).catch(err => console.error('PlantUML export error:', err)); });
-        this._panel.onDidDispose(() => this._disposeCallback?.());
+        this._panel.onDidDispose(() => {
+            this._live.reset();
+            this._disposeCallback?.();
+        });
     }
 
     onDispose(cb: () => void) {
@@ -40,21 +46,24 @@ export class PreviewPanel {
     setPipe(pipe: PlantUMLPipe) {
         this._pipe = pipe;
         this._cache.clear();
+        this._live.reset();
     }
 
     reveal() {
         this._panel.reveal(vscode.ViewColumn.Beside, true);
     }
 
-    async renderDocument(doc: vscode.TextDocument) {
-        this._currentFilePath = doc.uri.fsPath;
+    renderDocument(doc: vscode.TextDocument) {
+        const filePath = doc.uri.fsPath;
+        if (filePath !== this._currentFilePath) this._live.reset();
+        this._currentFilePath = filePath;
         const source = doc.getText();
-        try {
+        this._live.update(async () => {
             const workspaceRoot = vscode.workspace.getWorkspaceFolder(doc.uri)?.uri.fsPath
-                ?? path.dirname(this._currentFilePath);
+                ?? path.dirname(filePath);
             const extraRoots = vscode.workspace.getConfiguration('plantumlRenderer')
                 .get<string[]>('includeRoots', []);
-            const resolved = await resolveIncludes(source, this._currentFilePath, [workspaceRoot, ...extraRoots]);
+            const resolved = await resolveIncludes(source, filePath, [workspaceRoot, ...extraRoots]);
             let svg = this._cache.get(resolved);
             if (!svg) {
                 svg = await this._pipe.render(resolved);
@@ -63,13 +72,8 @@ export class PreviewPanel {
                 }
                 this._cache.set(resolved, svg);
             }
-            this._panel.webview.postMessage({ type: 'svg', data: svg });
-        } catch (err) {
-            this._panel.webview.postMessage({
-                type: 'error',
-                data: err instanceof Error ? err.message : String(err),
-            });
-        }
+            return svg;
+        });
     }
 
     private async _handleMessage(msg: { type: string; format?: string; data?: string; message?: string }) {

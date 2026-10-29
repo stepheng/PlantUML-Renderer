@@ -4,7 +4,7 @@ A VSCode extension that renders `.puml` and `.iuml` files into a live preview pa
 
 ## Features
 
-- **Live preview** — updates 500ms after each keystroke
+- **Live preview** — re-renders on every keystroke; while the source is mid-edit and broken, the last good diagram stays up and the error only appears if it persists for a second
 - **Pan and zoom** — scroll to zoom, drag to pan, double-click to reset
 - **Search** — find text in the diagram, navigate matches, highlights update as you type
 - **Export** — save the current diagram as SVG or PNG to the same directory as the source file

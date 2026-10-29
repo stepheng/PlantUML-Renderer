@@ -12,8 +12,6 @@ function getConfig() {
     };
 }
 
-let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-
 export function activate(context: vscode.ExtensionContext) {
     let cfg = getConfig();
     if (!cfg.jarPath && !cfg.nativePath) {
@@ -42,11 +40,8 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.workspace.onDidChangeTextDocument(e => {
             const lang = e.document.languageId;
             if (lang !== 'plantuml' && lang !== 'plantuml-include') return;
-            if (!panel) return;
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                panel?.renderDocument(e.document);
-            }, 500);
+            // No debounce: PreviewPanel coalesces renders and holds back mid-edit errors
+            panel?.renderDocument(e.document);
         }),
 
         // Re-render when the user switches to a different .puml/.iuml tab
@@ -59,7 +54,6 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.workspace.onDidChangeConfiguration(e => {
             if (!e.affectsConfiguration('plantumlRenderer')) return;
-            clearTimeout(debounceTimer);
             pipe.kill();
             cfg = getConfig();
             pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath, cfg.nativePath);
@@ -68,6 +62,4 @@ export function activate(context: vscode.ExtensionContext) {
     );
 }
 
-export function deactivate() {
-    clearTimeout(debounceTimer);
-}
+export function deactivate() {}
