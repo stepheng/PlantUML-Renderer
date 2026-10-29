@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { resolveIncludes } from './IncludeResolver';
+import { includeRoots } from './includeRoots';
 import { LiveRender } from './LiveRender';
 import { PlantUMLPipe } from './PlantUMLPipe';
 import { previewColumn } from './previewColumn';
@@ -70,11 +71,7 @@ export class PreviewPanel {
         this._currentFilePath = filePath;
         const source = doc.getText();
         this._live.update(async () => {
-            const workspaceRoot = vscode.workspace.getWorkspaceFolder(doc.uri)?.uri.fsPath
-                ?? path.dirname(filePath);
-            const extraRoots = vscode.workspace.getConfiguration('plantumlRenderer')
-                .get<string[]>('includeRoots', []);
-            const resolved = await resolveIncludes(source, filePath, [workspaceRoot, ...extraRoots]);
+            const resolved = await resolveIncludes(source, filePath, includeRoots(doc.uri));
             let svg = this._cache.get(resolved);
             if (!svg) {
                 svg = await this._pipe.render(resolved);
