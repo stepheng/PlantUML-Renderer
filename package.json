@@ -38,10 +38,15 @@
     "configuration": {
       "title": "PlantUML Renderer",
       "properties": {
+        "plantumlRenderer.nativePath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to a native PlantUML executable (no Java needed). When set, javaPath and jarPath are ignored"
+        },
         "plantumlRenderer.jarPath": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to plantuml.jar (required)"
+          "description": "Absolute path to plantuml.jar (required unless nativePath is set)"
         },
         "plantumlRenderer.javaPath": {
           "type": "string",

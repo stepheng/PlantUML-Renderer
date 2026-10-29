@@ -19,6 +19,7 @@ export class PlantUMLPipe {
         private readonly javaPath: string,
         private readonly jarPath: string,
         private readonly dotPath: string,
+        private readonly nativePath = '',
     ) {}
 
     render(source: string): Promise<string> {
@@ -58,10 +59,13 @@ export class PlantUMLPipe {
     private ensureRunning() {
         if (this.proc && !this.proc.killed) return;
 
-        const args = ['-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX', '-jar', this.jarPath, '-tsvg', '-pipe'];
+        // A native (GraalVM) binary takes the same -D flags and runs without java -jar
+        const args = ['-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX'];
+        if (!this.nativePath) args.push('-jar', this.jarPath);
+        args.push('-tsvg', '-pipe');
         if (this.dotPath) args.push('-graphvizdot', this.dotPath);
 
-        this.proc = spawn(this.javaPath, args);
+        this.proc = spawn(this.nativePath || this.javaPath, args);
         this.outBuf = '';
 
         this.proc.stdout!.on('data', (chunk: Buffer) => {

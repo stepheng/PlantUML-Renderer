@@ -1,6 +1,6 @@
 # PlantUML Renderer
 
-A VSCode extension that renders `.puml` and `.iuml` files into a live preview panel using a local PlantUML JAR. No server, no network — just a persistent JVM pipe process.
+A VSCode extension that renders `.puml` and `.iuml` files into a live preview panel using a local PlantUML JAR or native binary. No server, no network — just a persistent PlantUML pipe process.
 
 ## Features
 
@@ -21,11 +21,20 @@ A VSCode extension that renders `.puml` and `.iuml` files into a live preview pa
 
 ## Requirements
 
-- Java (path configurable, defaults to `/usr/bin/java`)
-- [PlantUML JAR](https://plantuml.com/download)
+- Either a native PlantUML binary (no Java needed), or Java plus the [PlantUML JAR](https://plantuml.com/download)
 - [Graphviz](https://graphviz.org/download/) `dot` executable (for diagrams that require it)
 
 ## Setup
+
+### Native binary (no Java)
+
+1. Download `native-plantuml-<platform>-<version>.zip` from the [PlantUML releases](https://github.com/plantuml/plantuml/releases/latest) and unzip it
+2. On macOS, if the archive came from a browser, clear the quarantine flag: `xattr -d com.apple.quarantine plantuml`
+3. Open VSCode Settings and search for **PlantUML Renderer**
+4. Set `plantumlRenderer.nativePath` to the absolute path of the `plantuml` executable
+5. Optionally adjust `plantumlRenderer.dotPath`
+
+### JAR
 
 1. Download `plantuml.jar` from [plantuml.com/download](https://plantuml.com/download)
 2. Open VSCode Settings and search for **PlantUML Renderer**
@@ -64,7 +73,8 @@ Click **Export SVG** or **Export PNG** in the floating toolbar. Files are saved 
 
 | Setting | Default | Description |
 |---|---|---|
-| `plantumlRenderer.jarPath` | _(required)_ | Absolute path to `plantuml.jar` |
+| `plantumlRenderer.nativePath` | _(empty)_ | Absolute path to a native PlantUML executable; when set, `javaPath` and `jarPath` are ignored |
+| `plantumlRenderer.jarPath` | _(required unless `nativePath` is set)_ | Absolute path to `plantuml.jar` |
 | `plantumlRenderer.javaPath` | `/usr/bin/java` | Path to the Java executable |
 | `plantumlRenderer.dotPath` | `/opt/homebrew/bin/dot` | Path to the Graphviz `dot` executable |
 | `plantumlRenderer.includeRoots` | `[]` | Additional absolute directories allowed for local `!include` files |
@@ -72,7 +82,7 @@ Click **Export SVG** or **Export PNG** in the floating toolbar. Files are saved 
 Local includes are limited to the open workspace folder (or the diagram's
 directory when no workspace is open) and any explicitly configured include
 roots. Symlinks cannot escape those roots. PlantUML runs with its `SANDBOX`
-profile, which blocks the JAR from loading other files or URLs. Add a shared
+profile, which blocks it from loading other files or URLs. Add a shared
 include directory to `includeRoots` when needed.
 
 ## Building from source

@@ -48,6 +48,17 @@ describe('PlantUMLPipe', () => {
         ]);
     });
 
+    test('spawns native binary directly, without java or -jar, when nativePath is set', async () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '/usr/bin/dot', '/p/plantuml-native');
+        const p = pipe.render('@startuml\nA -> B\n@enduml');
+        mockProc.stdout.emit('data', Buffer.from('<svg></svg>'));
+        await p;
+        expect(spawn).toHaveBeenCalledWith('/p/plantuml-native', [
+            '-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX',
+            '-tsvg', '-pipe', '-graphvizdot', '/usr/bin/dot',
+        ]);
+    });
+
     test('wraps source in @startuml/@enduml when missing', async () => {
         const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
         pipe.render('A -> B');

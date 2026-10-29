@@ -8,6 +8,7 @@ function getConfig() {
         jarPath:  cfg.get<string>('jarPath', ''),
         javaPath: cfg.get<string>('javaPath', '/usr/bin/java'),
         dotPath:  cfg.get<string>('dotPath', '/opt/homebrew/bin/dot'),
+        nativePath: cfg.get<string>('nativePath', ''),
     };
 }
 
@@ -15,13 +16,13 @@ let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
     let cfg = getConfig();
-    if (!cfg.jarPath) {
+    if (!cfg.jarPath && !cfg.nativePath) {
         vscode.window.showErrorMessage(
-            'PlantUML Renderer: plantumlRenderer.jarPath is not set. Configure it in Settings, then reload the window.',
+            'PlantUML Renderer: set plantumlRenderer.nativePath or plantumlRenderer.jarPath in Settings, then reload the window.',
         );
         return;
     }
-    let pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath);
+    let pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath, cfg.nativePath);
     let panel: PreviewPanel | null = null;
 
     context.subscriptions.push(
@@ -61,7 +62,7 @@ export function activate(context: vscode.ExtensionContext) {
             clearTimeout(debounceTimer);
             pipe.kill();
             cfg = getConfig();
-            pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath);
+            pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath, cfg.nativePath);
             panel?.setPipe(pipe);
         }),
     );
