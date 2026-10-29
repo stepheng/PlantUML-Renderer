@@ -13,10 +13,10 @@ A VSCode extension that renders `.puml` and `.iuml` files into a live preview pa
 
 ## Installation
 
-1. Download `vscode-plantuml-renderer-0.2.0.vsix` from the [latest release](https://github.com/stepheng/PlantUML-Renderer/releases/latest)
+1. Download `vscode-plantuml-renderer-0.3.0.vsix` from the [latest release](https://github.com/stepheng/PlantUML-Renderer/releases/latest)
 2. Install it:
    ```bash
-   code --install-extension vscode-plantuml-renderer-0.2.0.vsix
+   code --install-extension vscode-plantuml-renderer-0.3.0.vsix
    ```
    Or via the VSCode UI: Extensions panel (`Cmd+Shift+X`) → `···` menu → **Install from VSIX…**
 3. Reload the window (`Cmd+Shift+P` → **Developer: Reload Window**)
