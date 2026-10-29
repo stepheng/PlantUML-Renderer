@@ -99,6 +99,12 @@ describe('PlantUMLPipe', () => {
         expect(mockProc.stdin.write).toHaveBeenCalledWith('@startmindmap\n* Root\n@endmindmap\n');
     });
 
+    test('sends only the first diagram block, so PlantUML returns exactly one SVG per render', () => {
+        const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+        pipe.render("' note\n@startuml\nA -> B\n@enduml\n\n@startuml\nC -> D\n@enduml\n");
+        expect(mockProc.stdin.write).toHaveBeenCalledWith('@startuml\nA -> B\n@enduml\n');
+    });
+
     test('resolves with SVG string on stdout', async () => {
         const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
         const p = pipe.render('A -> B');

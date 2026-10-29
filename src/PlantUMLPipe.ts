@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process';
+import { firstBlock } from './DiagramBlock';
 
 interface Pending {
     resolve: (s: string) => void;
@@ -9,12 +10,16 @@ interface QueueItem extends Pending {
     source: string;
 }
 
-// In -pipe mode PlantUML emits nothing until it reads the matching @end line, so a
-// source without one (e.g. mid-edit) would stall every later render.
+// Send exactly one terminated diagram per render. In -pipe mode PlantUML emits
+// nothing until it reads the matching @end line, so a source without one (e.g.
+// mid-edit) would stall every later render; and each extra block in the source
+// would emit an extra SVG, pairing every later response with the wrong request.
 function terminate(source: string): string {
-    const type = source.match(/^\s*@start(\w+)/i)?.[1];
-    if (!type) return `@startuml\n${source}\n@enduml`;
-    return new RegExp(`^\\s*@end${type}\\s*$`, 'im').test(source) ? source : `${source}\n@end${type}`;
+    const lines = source.split('\n');
+    const block = firstBlock(lines);
+    if (!block) return `@startuml\n${source}\n@enduml`;
+    if (block.end < 0) return [...lines.slice(block.start), `@end${block.type}`].join('\n');
+    return lines.slice(block.start, block.end + 1).join('\n');
 }
 
 export class PlantUMLPipe {
