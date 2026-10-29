@@ -3,8 +3,18 @@ import * as vscode from 'vscode';
 import { resolveIncludes } from './IncludeResolver';
 import { LiveRender } from './LiveRender';
 import { PlantUMLPipe } from './PlantUMLPipe';
+import { previewColumn } from './previewColumn';
 
 const CACHE_LIMIT = 30;
+
+function targetColumn(): vscode.ViewColumn {
+    const groups = vscode.window.tabGroups.all.map(g => ({
+        viewColumn: g.viewColumn,
+        isActive: g.isActive,
+        webviewTypes: g.tabs.flatMap(t => t.input instanceof vscode.TabInputWebview ? [t.input.viewType] : []),
+    }));
+    return previewColumn(groups) ?? vscode.ViewColumn.Beside;
+}
 
 export class PreviewPanel {
     private readonly _panel: vscode.WebviewPanel;
@@ -22,7 +32,7 @@ export class PreviewPanel {
         this._panel = vscode.window.createWebviewPanel(
             'plantumlPreview',
             'PlantUML Preview',
-            vscode.ViewColumn.Beside,
+            { viewColumn: targetColumn(), preserveFocus: true },
             {
                 enableScripts: true,
                 localResourceRoots: [
@@ -50,7 +60,8 @@ export class PreviewPanel {
     }
 
     reveal() {
-        this._panel.reveal(vscode.ViewColumn.Beside, true);
+        // Keep the panel in whichever group it (or the user) settled on
+        this._panel.reveal(undefined, true);
     }
 
     renderDocument(doc: vscode.TextDocument) {
