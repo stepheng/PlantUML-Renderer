@@ -167,4 +167,84 @@ describe('PlantUMLPipe', () => {
         mockProc.stdout.emit('data', Buffer.from('<svg>second</svg>'));
         expect(await p2).toBe('<svg>second</svg>');
     });
+
+    describe('idle shutdown', () => {
+        const IDLE_MS = 1000;
+
+        beforeEach(() => jest.useFakeTimers());
+        afterEach(() => jest.useRealTimers());
+
+        async function renderOnce(pipe: PlantUMLPipe, proc = mockProc) {
+            const p = pipe.render('A -> B');
+            proc.stdout.emit('data', Buffer.from('<svg></svg>'));
+            await p;
+        }
+
+        test('kills the process once the queue has been idle for the timeout', async () => {
+            const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '', '', 'graphviz', IDLE_MS);
+            await renderOnce(pipe);
+            jest.advanceTimersByTime(IDLE_MS - 1);
+            expect(mockProc.kill).not.toHaveBeenCalled();
+            jest.advanceTimersByTime(1);
+            expect(mockProc.kill).toHaveBeenCalledTimes(1);
+        });
+
+        test('spawns a fresh process for the next render after an idle shutdown', async () => {
+            const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '', '', 'graphviz', IDLE_MS);
+            await renderOnce(pipe);
+            jest.advanceTimersByTime(IDLE_MS);
+
+            const second = makeMockProc();
+            (spawn as jest.Mock).mockReturnValue(second);
+            await renderOnce(pipe, second);
+            expect(spawn).toHaveBeenCalledTimes(2);
+        });
+
+        test('a new render before the timeout keeps the process alive', async () => {
+            const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '', '', 'graphviz', IDLE_MS);
+            await renderOnce(pipe);
+            jest.advanceTimersByTime(IDLE_MS - 1);
+            const p = pipe.render('C -> D');
+            jest.advanceTimersByTime(IDLE_MS);
+            expect(mockProc.kill).not.toHaveBeenCalled();
+            mockProc.stdout.emit('data', Buffer.from('<svg></svg>'));
+            await p;
+            expect(spawn).toHaveBeenCalledTimes(1);
+        });
+
+        test('a timeout of 0 never shuts the process down', async () => {
+            const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '', '', 'graphviz', 0);
+            await renderOnce(pipe);
+            expect(jest.getTimerCount()).toBe(0);
+        });
+
+        test('kill() clears the idle timer', async () => {
+            const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '', '', 'graphviz', IDLE_MS);
+            await renderOnce(pipe);
+            pipe.kill();
+            expect(mockProc.kill).toHaveBeenCalledTimes(1);
+            expect(jest.getTimerCount()).toBe(0);
+        });
+
+        test('a late close from the idle-killed process does not fail its replacement', async () => {
+            const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '', '', 'graphviz', IDLE_MS);
+            const first = mockProc;
+            await renderOnce(pipe);
+            jest.advanceTimersByTime(IDLE_MS);
+
+            const second = makeMockProc();
+            (spawn as jest.Mock).mockReturnValue(second);
+            const p = pipe.render('C -> D');
+            first.emit('close', null);
+            first.emit('error', new Error('old'));
+            first.stdin.emit('error', new Error('old stdin'));
+
+            second.stdout.emit('data', Buffer.from('<svg>new</svg>'));
+            expect(await p).toBe('<svg>new</svg>');
+
+            // The replacement is still the live process: no respawn
+            await renderOnce(pipe, second);
+            expect(spawn).toHaveBeenCalledTimes(2);
+        });
+    });
 });

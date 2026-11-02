@@ -82,6 +82,12 @@
           "default": "graphviz",
           "description": "Layout engine for class, component, state, use case and other graph diagrams"
         },
+        "plantumlRenderer.idleShutdownMinutes": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "description": "Stop the background PlantUML process after this many minutes without a render, to free its memory. The next render restarts it (about 0.6 s for the native binary, against about 0.05 s per warm render). 0 keeps it running"
+        },
         "plantumlRenderer.includeRoots": {
           "type": "array",
           "items": { "type": "string" },
