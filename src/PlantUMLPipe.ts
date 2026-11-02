@@ -37,7 +37,7 @@ export class PlantUMLPipe {
     private pending: Pending | null = null;
     private queue: QueueItem[] = [];
     private idleTimer: ReturnType<typeof setTimeout> | undefined;
-    // Lower-cased: Java and fontallow.m both match family names case-insensitively
+    // Lower-cased: Java and NSFontManager both match family names case-insensitively
     private readonly fonts: Set<string>;
 
     constructor(
