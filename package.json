@@ -97,8 +97,8 @@
         "plantumlRenderer.fontFamilies": {
           "type": "array",
           "items": { "type": "string" },
-          "default": ["Lucida Grande", "Helvetica", "Helvetica Neue", "Arial", "Times New Roman", "Courier New", "Menlo", "Monaco"],
-          "description": "macOS with nativePath only: font families PlantUML loads at start-up, which cuts a cold start from about 0.45 s to 0.04 s. Fonts a diagram names are added automatically (one restart). Glyph fallback for CJK and emoji still works. Empty loads every installed font"
+          "default": ["Lucida Grande", "Menlo"],
+          "description": "macOS with nativePath only: font families PlantUML loads at start-up, which cuts a cold start from about 0.45 s to under 0.03 s. The defaults back PlantUML's default and monospaced text. Other fonts a diagram names are added automatically if macOS lists them (one restart). Glyph fallback for CJK and emoji still works. Empty loads every installed font"
         }
       }
     }
