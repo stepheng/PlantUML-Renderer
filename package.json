@@ -93,6 +93,12 @@
           "items": { "type": "string" },
           "default": [],
           "description": "Additional absolute directories allowed for local !include files"
+        },
+        "plantumlRenderer.fontFamilies": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["Lucida Grande", "Helvetica", "Helvetica Neue", "Arial", "Times New Roman", "Courier New", "Menlo", "Monaco"],
+          "description": "macOS with nativePath only: font families PlantUML loads at start-up, which cuts a cold start from about 0.45 s to 0.04 s. Fonts a diagram names are added automatically (one restart). Glyph fallback for CJK and emoji still works. Empty loads every installed font"
         }
       }
     }
@@ -100,6 +106,8 @@
   "scripts": {
     "build": "node esbuild.config.mjs",
     "build:prod": "node esbuild.config.mjs production",
+    "build:fontallow": "mkdir -p out && xcrun clang -dynamiclib -fobjc-arc -framework AppKit -arch arm64 -arch x86_64 -mmacosx-version-min=10.15 -o out/libfontallow.dylib src/fontallow.m",
+    "vscode:prepublish": "npm run build:prod && npm run build:fontallow",
     "test": "jest"
   },
   "devDependencies": {

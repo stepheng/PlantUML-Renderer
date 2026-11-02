@@ -22,12 +22,23 @@ function terminate(source: string): string {
     return lines.slice(block.start, block.end + 1).join('\n');
 }
 
+// Font families a diagram names: skinparam/style `...FontName X` keys and creole `<font:X>`
+export function fontsUsed(source: string): string[] {
+    const found = new Set<string>();
+    for (const m of source.matchAll(/(?:^\s*(?:skinparam\s+)?\w*|[{;]\s*\w*)FontName\s+(?:"([^"]+)"|([^\s;}]+))/gim))
+        found.add(m[1] || m[2]);
+    for (const m of source.matchAll(/<font:\s*([^>]+)>/gi)) found.add(m[1].trim());
+    return [...found];
+}
+
 export class PlantUMLPipe {
     private proc: ChildProcess | null = null;
     private outBuf = '';
     private pending: Pending | null = null;
     private queue: QueueItem[] = [];
     private idleTimer: ReturnType<typeof setTimeout> | undefined;
+    // Lower-cased: Java and NSFontManager both match family names case-insensitively
+    private readonly fonts: Set<string>;
 
     constructor(
         private readonly javaPath: string,
@@ -36,7 +47,17 @@ export class PlantUMLPipe {
         private readonly nativePath = '',
         private readonly layout: 'graphviz' | 'smetana' = 'graphviz',
         private readonly idleMs = 0,
-    ) {}
+        // Most of a cold start is the macOS font manager walking every installed font;
+        // src/fontallow.m, injected into the native binary, limits the walk to these families
+        private readonly fontAllow?: { lib: string; families: string[] },
+    ) {
+        this.fonts = new Set(fontAllow?.families.map(f => f.toLowerCase()));
+    }
+
+    // Pay the cold start before the user needs a render
+    warmUp() {
+        if (!this.proc && !this.pending) this.render('@startuml\n@enduml').catch(() => {});
+    }
 
     render(source: string): Promise<string> {
         clearTimeout(this.idleTimer);
@@ -60,6 +81,13 @@ export class PlantUMLPipe {
         }
         const item = this.queue.shift()!;
         this.pending = item;
+        if (this.fontAllow) {
+            const missing = fontsUsed(item.source).map(f => f.toLowerCase()).filter(f => !this.fonts.has(f));
+            if (missing.length) {
+                missing.forEach(f => this.fonts.add(f));
+                this.stop();  // The allowlist is fixed per process: respawn with the bigger one
+            }
+        }
         try {
             this.ensureRunning();
             this.proc!.stdin!.write(terminate(item.source) + '\n');
@@ -96,7 +124,10 @@ export class PlantUMLPipe {
         if (this.layout === 'smetana') args.push('-Playout=smetana');
         else if (this.dotPath) args.push('-graphvizdot', this.dotPath);
 
-        const proc = this.proc = spawn(this.nativePath || this.javaPath, args);
+        const env = this.fontAllow
+            ? { ...process.env, DYLD_INSERT_LIBRARIES: this.fontAllow.lib, PLANTUML_FONT_FAMILIES: [...this.fonts].join(',') }
+            : process.env;
+        const proc = this.proc = spawn(this.nativePath || this.javaPath, args, { env });
         this.outBuf = '';
         // Events from a process already stopped (idle or killed) must not fail its replacement
         const fail = (err: Error) => { if (proc === this.proc) this.fail(err); };

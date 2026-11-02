@@ -4,7 +4,7 @@ import { Writable } from 'stream';
 jest.mock('child_process', () => ({ spawn: jest.fn() }));
 
 import { spawn } from 'child_process';
-import { PlantUMLPipe } from '../src/PlantUMLPipe';
+import { PlantUMLPipe, fontsUsed } from '../src/PlantUMLPipe';
 
 function makeMockProc() {
     const proc = new EventEmitter() as any;
@@ -35,7 +35,7 @@ describe('PlantUMLPipe', () => {
         expect(spawn).toHaveBeenCalledWith('/usr/bin/java', [
             '-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX', '-jar', '/p/plantuml.jar',
             '-tsvg', '-pipe', '-graphvizdot', '/usr/bin/dot',
-        ]);
+        ], { env: process.env });
     });
 
     test('omits graphvizdot arg when dotPath is empty', async () => {
@@ -45,7 +45,7 @@ describe('PlantUMLPipe', () => {
         await p;
         expect(spawn).toHaveBeenCalledWith('/usr/bin/java', [
             '-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX', '-jar', '/p/plantuml.jar', '-tsvg', '-pipe',
-        ]);
+        ], { env: process.env });
     });
 
     test('spawns native binary directly, without java or -jar, when nativePath is set', async () => {
@@ -56,7 +56,7 @@ describe('PlantUMLPipe', () => {
         expect(spawn).toHaveBeenCalledWith('/p/plantuml-native', [
             '-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX',
             '-tsvg', '-pipe', '-graphvizdot', '/usr/bin/dot',
-        ]);
+        ], { env: process.env });
     });
 
     test('selects Smetana layout and skips graphvizdot when layout is smetana', async () => {
@@ -67,7 +67,7 @@ describe('PlantUMLPipe', () => {
         expect(spawn).toHaveBeenCalledWith('/p/plantuml-native', [
             '-Dfile.encoding=UTF-8', '-DPLANTUML_SECURITY_PROFILE=SANDBOX',
             '-tsvg', '-pipe', '-Playout=smetana',
-        ]);
+        ], { env: process.env });
     });
 
     test('wraps source in @startuml/@enduml when missing', async () => {
@@ -245,6 +245,103 @@ describe('PlantUMLPipe', () => {
             // The replacement is still the live process: no respawn
             await renderOnce(pipe, second);
             expect(spawn).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe('warm-up', () => {
+        test('starts the process with an empty diagram when nothing is running', () => {
+            const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+            pipe.warmUp();
+            expect(spawn).toHaveBeenCalledTimes(1);
+            expect(mockProc.stdin.write).toHaveBeenCalledWith('@startuml\n@enduml\n');
+        });
+
+        test('is a no-op while the process is running', async () => {
+            const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+            const p = pipe.render('A -> B');
+            mockProc.stdout.emit('data', Buffer.from('<svg></svg>'));
+            await p;
+            pipe.warmUp();
+            expect(spawn).toHaveBeenCalledTimes(1);
+            expect(mockProc.stdin.write).toHaveBeenCalledTimes(1);
+        });
+
+        test('is a no-op while a render is pending', () => {
+            const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+            pipe.render('A -> B');
+            pipe.warmUp();
+            expect(mockProc.stdin.write).toHaveBeenCalledTimes(1);
+        });
+
+        test('swallows a failed warm-up', async () => {
+            const pipe = new PlantUMLPipe('/usr/bin/java', '/p/plantuml.jar', '');
+            pipe.warmUp();
+            mockProc.emit('close', 1);
+            await Promise.resolve();  // an unhandled rejection would fail the test run
+        });
+    });
+
+    describe('font allowlist', () => {
+        const fontAllow = { lib: '/ext/out/libfontallow.dylib', families: ['Helvetica', 'Menlo'] };
+        const spawnEnv = (call: number) => (spawn as jest.Mock).mock.calls[call][2].env;
+
+        test('fontsUsed finds fonts named by skinparam, style and creole', () => {
+            const src = [
+                'skinparam defaultFontName Menlo',
+                'skinparam classFontName "Fira Code"',
+                '<style>',
+                'note { FontName Georgia; FontSize 12 }',
+                '</style>',
+                'note right: <font:Times New Roman>serif</font> and <font color=red>not a font</font>',
+            ].join('\n');
+            expect(fontsUsed(src).sort()).toEqual(['Fira Code', 'Georgia', 'Menlo', 'Times New Roman']);
+        });
+
+        test('fontsUsed ignores FontName in ordinary diagram text', () => {
+            expect(fontsUsed('A -> B: FontName is just text here')).toEqual([]);
+        });
+
+        test('injects the dylib with the allowed families', () => {
+            const pipe = new PlantUMLPipe('', '', '', '/p/plantuml-native', 'graphviz', 0, fontAllow);
+            pipe.render('A -> B');
+            expect(spawnEnv(0)).toMatchObject({
+                DYLD_INSERT_LIBRARIES: '/ext/out/libfontallow.dylib',
+                PLANTUML_FONT_FAMILIES: 'helvetica,menlo',
+            });
+        });
+
+        test('restarts with a bigger list when a diagram names an unlisted font', async () => {
+            const pipe = new PlantUMLPipe('', '', '', '/p/plantuml-native', 'graphviz', 0, fontAllow);
+            const first = mockProc;
+            const p = pipe.render('A -> B');
+            first.stdout.emit('data', Buffer.from('<svg></svg>'));
+            await p;
+
+            const second = makeMockProc();
+            (spawn as jest.Mock).mockReturnValue(second);
+            const q = pipe.render('skinparam defaultFontName Georgia\nA -> B');
+            expect(first.kill).toHaveBeenCalledTimes(1);
+            expect(spawnEnv(1).PLANTUML_FONT_FAMILIES).toBe('helvetica,menlo,georgia');
+            expect(second.stdin.write).toHaveBeenCalledTimes(1);
+            first.emit('close', null);
+            second.stdout.emit('data', Buffer.from('<svg>georgia</svg>'));
+            expect(await q).toBe('<svg>georgia</svg>');
+        });
+
+        test('does not restart for a listed font, in any case', async () => {
+            const pipe = new PlantUMLPipe('', '', '', '/p/plantuml-native', 'graphviz', 0, fontAllow);
+            const p = pipe.render('A -> B');
+            mockProc.stdout.emit('data', Buffer.from('<svg></svg>'));
+            await p;
+            pipe.render('skinparam defaultFontName menlo\nA -> B');
+            expect(mockProc.kill).not.toHaveBeenCalled();
+            expect(spawn).toHaveBeenCalledTimes(1);
+        });
+
+        test('leaves the environment alone without an allowlist', () => {
+            const pipe = new PlantUMLPipe('', '', '', '/p/plantuml-native');
+            pipe.render('skinparam defaultFontName Georgia\nA -> B');
+            expect(spawnEnv(0)).toBe(process.env);
         });
     });
 });

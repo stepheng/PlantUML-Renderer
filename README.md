@@ -82,6 +82,7 @@ Click **Export SVG** or **Export PNG** in the floating toolbar. Files are saved 
 | `plantumlRenderer.layoutEngine` | `graphviz` | `graphviz`, or `smetana` for PlantUML's built-in layout: no Graphviz needed and faster redraws, but layouts can differ |
 | `plantumlRenderer.idleShutdownMinutes` | `5` | Stop the background PlantUML process after this many idle minutes to free its memory; the next render restarts it (about 0.6 s for the native binary). `0` keeps it running |
 | `plantumlRenderer.includeRoots` | `[]` | Additional absolute directories allowed for local `!include` files |
+| `plantumlRenderer.fontFamilies` | Lucida Grande, Helvetica, Helvetica Neue, Arial, Times New Roman, Courier New, Menlo, Monaco | macOS with `nativePath` only: font families PlantUML loads at start-up, cutting a cold start from about 0.45 s to 0.04 s. Fonts a diagram names are added automatically (one restart); glyph fallback for CJK and emoji still works. `[]` loads every installed font |
 
 Local includes are limited to the open workspace folder (or the diagram's
 directory when no workspace is open) and any explicitly configured include
