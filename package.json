@@ -49,6 +49,13 @@
         "title": "PlantUML Renderer: Open Preview"
       }
     ],
+    "keybindings": [
+      {
+        "command": "plantumlRenderer.preview",
+        "key": "alt+d",
+        "when": "editorLangId == plantuml || editorLangId == plantuml-include"
+      }
+    ],
     "configuration": {
       "title": "PlantUML Renderer",
       "properties": {
