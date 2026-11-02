@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events';
 import { Writable } from 'stream';
 
-jest.mock('child_process', () => ({ spawn: jest.fn() }));
+jest.mock('child_process', () => ({ spawn: jest.fn(), execFileSync: jest.fn() }));
 
-import { spawn } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import { PlantUMLPipe, fontsUsed } from '../src/PlantUMLPipe';
 
 function makeMockProc() {
@@ -284,6 +284,50 @@ describe('PlantUMLPipe', () => {
     describe('font allowlist', () => {
         const fontAllow = { lib: '/ext/out/libfontallow.dylib', families: ['Helvetica', 'Menlo'] };
         const spawnEnv = (call: number) => (spawn as jest.Mock).mock.calls[call][2].env;
+        // What NSFontManager lists: it hides Times and Courier, so stock PlantUML never sees them
+        const visible = ['Lucida Grande', 'Helvetica', 'Helvetica Neue', 'Arial', 'Georgia', 'Times New Roman', 'Menlo'];
+
+        beforeEach(() => (execFileSync as jest.Mock).mockReturnValue(visible.join('\n') + '\n'));
+
+        async function renderOnce(pipe: PlantUMLPipe, source: string) {
+            const p = pipe.render(source);
+            mockProc.stdout.emit('data', Buffer.from('<svg></svg>'));
+            await p;
+        }
+
+        test('adds only named fonts that macOS lists', async () => {
+            const pipe = new PlantUMLPipe('', '', '', '/p/plantuml-native', 'graphviz', 0, fontAllow);
+            await renderOnce(pipe, [
+                'skinparam defaultFontName "Helvetica Neue"',
+                'A -> B : <font:Arial>a</font> <font:Georgia>g</font> <font:Times>t</font> <font:Courier>c</font> <font:Nope>n</font>',
+            ].join('\n'));
+            expect(spawnEnv(0).PLANTUML_FONT_FAMILIES).toBe('helvetica,menlo,helvetica neue,arial,georgia');
+        });
+
+        test('does not restart for a named font macOS hides', async () => {
+            const pipe = new PlantUMLPipe('', '', '', '/p/plantuml-native', 'graphviz', 0, fontAllow);
+            await renderOnce(pipe, 'A -> B');
+            await renderOnce(pipe, 'A -> B : <font:Times>t</font>');
+            expect(mockProc.kill).not.toHaveBeenCalled();
+            expect(spawn).toHaveBeenCalledTimes(1);
+        });
+
+        test('reads the macOS family list once, and only when a diagram names an unlisted font', async () => {
+            const pipe = new PlantUMLPipe('', '', '', '/p/plantuml-native', 'graphviz', 0, fontAllow);
+            await renderOnce(pipe, 'skinparam defaultFontName Menlo\nA -> B');
+            expect(execFileSync).not.toHaveBeenCalled();
+            await renderOnce(pipe, '<font:Times>t</font>');
+            await renderOnce(pipe, '<font:Courier>c</font>');
+            expect(execFileSync).toHaveBeenCalledTimes(1);
+            expect((execFileSync as jest.Mock).mock.calls[0][0]).toBe('osascript');
+        });
+
+        test('adds no fonts when the macOS family list cannot be read', async () => {
+            (execFileSync as jest.Mock).mockImplementation(() => { throw new Error('osascript failed'); });
+            const pipe = new PlantUMLPipe('', '', '', '/p/plantuml-native', 'graphviz', 0, fontAllow);
+            await renderOnce(pipe, 'skinparam defaultFontName Georgia\nA -> B');
+            expect(spawnEnv(0).PLANTUML_FONT_FAMILIES).toBe('helvetica,menlo');
+        });
 
         test('fontsUsed finds fonts named by skinparam, style and creole', () => {
             const src = [

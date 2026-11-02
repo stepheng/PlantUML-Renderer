@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'child_process';
+import { execFileSync, spawn, type ChildProcess } from 'child_process';
 import { firstBlock } from './DiagramBlock';
 
 interface Pending {
@@ -39,6 +39,7 @@ export class PlantUMLPipe {
     private idleTimer: ReturnType<typeof setTimeout> | undefined;
     // Lower-cased: Java and NSFontManager both match family names case-insensitively
     private readonly fonts: Set<string>;
+    private visibleFamilies: Set<string> | undefined;
 
     constructor(
         private readonly javaPath: string,
@@ -82,7 +83,9 @@ export class PlantUMLPipe {
         const item = this.queue.shift()!;
         this.pending = item;
         if (this.fontAllow) {
-            const missing = fontsUsed(item.source).map(f => f.toLowerCase()).filter(f => !this.fonts.has(f));
+            const unlisted = fontsUsed(item.source).map(f => f.toLowerCase()).filter(f => !this.fonts.has(f));
+            // Stock PlantUML only sees families macOS lists (it hides Times and Courier, which fall back)
+            const missing = unlisted.length ? unlisted.filter(f => this.systemFamilies().has(f)) : [];
             if (missing.length) {
                 missing.forEach(f => this.fonts.add(f));
                 this.stop();  // The allowlist is fixed per process: respawn with the bigger one
@@ -96,6 +99,19 @@ export class PlantUMLPipe {
             item.reject(err instanceof Error ? err : new Error(String(err)));
             this.next();
         }
+    }
+
+    // The font families NSFontManager lists, lower-cased. ~180 ms, read once, and only when a
+    // diagram first names an unlisted font. Unreadable: add nothing, so output stays as stock.
+    private systemFamilies(): Set<string> {
+        try {
+            this.visibleFamilies ??= new Set(execFileSync('osascript', ['-l', 'JavaScript', '-e',
+                'ObjC.import("AppKit"); ObjC.deepUnwrap($.NSFontManager.sharedFontManager.availableFontFamilies).join("\\n")'],
+                { encoding: 'utf-8' }).split('\n').filter(Boolean).map(f => f.toLowerCase()));
+        } catch {
+            this.visibleFamilies = new Set();
+        }
+        return this.visibleFamilies;
     }
 
     private stop() {
