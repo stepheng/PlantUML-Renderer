@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { existsSync } from 'fs';
 import { registerCompletion } from './CompletionProvider';
 import { PlantUMLPipe } from './PlantUMLPipe';
 import { PreviewPanel } from './PreviewPanel';
@@ -12,7 +13,17 @@ function getConfig() {
         nativePath: cfg.get<string>('nativePath', ''),
         layoutEngine: cfg.get<'graphviz' | 'smetana'>('layoutEngine', 'graphviz'),
         idleShutdownMinutes: cfg.get<number>('idleShutdownMinutes', 5),
+        fontFamilies: cfg.get<string[]>('fontFamilies', []),
     };
+}
+
+function createPipe(cfg: ReturnType<typeof getConfig>, fontLib: string) {
+    // Only the native binary takes the injected font allowlist: a hardened-runtime java ignores it
+    const fontAllow = process.platform === 'darwin' && cfg.nativePath && cfg.fontFamilies.length && existsSync(fontLib)
+        ? { lib: fontLib, families: cfg.fontFamilies }
+        : undefined;
+    return new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath, cfg.nativePath, cfg.layoutEngine,
+        cfg.idleShutdownMinutes * 60_000, fontAllow);
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -25,7 +36,9 @@ export function activate(context: vscode.ExtensionContext) {
         );
         return;
     }
-    let pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath, cfg.nativePath, cfg.layoutEngine, cfg.idleShutdownMinutes * 60_000);
+    const fontLib = context.asAbsolutePath('out/libfontallow.dylib');
+    let pipe = createPipe(cfg, fontLib);
+    pipe.warmUp();
     let panel: PreviewPanel | null = null;
 
     context.subscriptions.push(
@@ -57,11 +70,16 @@ export function activate(context: vscode.ExtensionContext) {
             panel.renderDocument(editor.document);
         }),
 
+        // Hide the cold start after an idle shutdown
+        vscode.window.onDidChangeWindowState(state => {
+            if (state.focused) pipe.warmUp();
+        }),
+
         vscode.workspace.onDidChangeConfiguration(e => {
             if (!e.affectsConfiguration('plantumlRenderer')) return;
             pipe.kill();
             cfg = getConfig();
-            pipe = new PlantUMLPipe(cfg.javaPath, cfg.jarPath, cfg.dotPath, cfg.nativePath, cfg.layoutEngine, cfg.idleShutdownMinutes * 60_000);
+            pipe = createPipe(cfg, fontLib);
             panel?.setPipe(pipe);
         }),
     );
