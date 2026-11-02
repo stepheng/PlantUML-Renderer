@@ -80,6 +80,7 @@ Click **Export SVG** or **Export PNG** in the floating toolbar. Files are saved 
 | `plantumlRenderer.javaPath` | `/usr/bin/java` | Path to the Java executable |
 | `plantumlRenderer.dotPath` | `/opt/homebrew/bin/dot` | Path to the Graphviz `dot` executable |
 | `plantumlRenderer.layoutEngine` | `graphviz` | `graphviz`, or `smetana` for PlantUML's built-in layout: no Graphviz needed and faster redraws, but layouts can differ |
+| `plantumlRenderer.idleShutdownMinutes` | `5` | Stop the background PlantUML process after this many idle minutes to free its memory; the next render restarts it (about 0.6 s for the native binary). `0` keeps it running |
 | `plantumlRenderer.includeRoots` | `[]` | Additional absolute directories allowed for local `!include` files |
 
 Local includes are limited to the open workspace folder (or the diagram's

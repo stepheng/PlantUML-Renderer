@@ -27,6 +27,7 @@ export class PlantUMLPipe {
     private outBuf = '';
     private pending: Pending | null = null;
     private queue: QueueItem[] = [];
+    private idleTimer: ReturnType<typeof setTimeout> | undefined;
 
     constructor(
         private readonly javaPath: string,
@@ -34,9 +35,11 @@ export class PlantUMLPipe {
         private readonly dotPath: string,
         private readonly nativePath = '',
         private readonly layout: 'graphviz' | 'smetana' = 'graphviz',
+        private readonly idleMs = 0,
     ) {}
 
     render(source: string): Promise<string> {
+        clearTimeout(this.idleTimer);
         return new Promise((resolve, reject) => {
             this.queue.push({ source, resolve, reject });
             if (!this.pending) this.next();
@@ -44,17 +47,17 @@ export class PlantUMLPipe {
     }
 
     kill() {
-        this.proc?.kill();
-        this.proc = null;
-        const err = new Error('PlantUML pipe closed');
-        this.pending?.reject(err);
-        this.pending = null;
-        this.queue.forEach(item => item.reject(err));
-        this.queue = [];
+        clearTimeout(this.idleTimer);
+        this.stop();
+        this.fail(new Error('PlantUML pipe closed'));
     }
 
     private next() {
-        if (this.queue.length === 0) return;
+        if (this.queue.length === 0) {
+            // Free the warm process (~250 MB native) after a quiet spell; the next render respawns it
+            if (this.idleMs > 0 && this.proc) this.idleTimer = setTimeout(() => this.stop(), this.idleMs);
+            return;
+        }
         const item = this.queue.shift()!;
         this.pending = item;
         try {
@@ -65,6 +68,21 @@ export class PlantUMLPipe {
             item.reject(err instanceof Error ? err : new Error(String(err)));
             this.next();
         }
+    }
+
+    private stop() {
+        const proc = this.proc;
+        this.proc = null;
+        proc?.kill();
+    }
+
+    private fail(err: Error) {
+        const p = this.pending;
+        this.pending = null;
+        this.proc = null;
+        p?.reject(err);
+        this.queue.forEach(item => item.reject(err));
+        this.queue = [];
     }
 
     private ensureRunning() {
@@ -78,10 +96,12 @@ export class PlantUMLPipe {
         if (this.layout === 'smetana') args.push('-Playout=smetana');
         else if (this.dotPath) args.push('-graphvizdot', this.dotPath);
 
-        this.proc = spawn(this.nativePath || this.javaPath, args);
+        const proc = this.proc = spawn(this.nativePath || this.javaPath, args);
         this.outBuf = '';
+        // Events from a process already stopped (idle or killed) must not fail its replacement
+        const fail = (err: Error) => { if (proc === this.proc) this.fail(err); };
 
-        this.proc.stdout!.on('data', (chunk: Buffer) => {
+        proc.stdout!.on('data', (chunk: Buffer) => {
             this.outBuf += chunk.toString('utf-8');
             let end: number;
             while ((end = this.outBuf.indexOf('</svg>')) !== -1) {
@@ -95,36 +115,9 @@ export class PlantUMLPipe {
             }
         });
 
-        this.proc.stderr!.on('data', () => {});
-
-        this.proc.stdin!.on('error', (err) => {
-            const p = this.pending;
-            this.pending = null;
-            this.proc = null;
-            p?.reject(err);
-            this.queue.forEach(item => item.reject(err));
-            this.queue = [];
-        });
-
-        this.proc.on('error', (err) => {
-            const p = this.pending;
-            this.pending = null;
-            this.proc = null;
-            p?.reject(err);
-            this.queue.forEach(item => item.reject(err));
-            this.queue = [];
-        });
-
-        this.proc.on('close', (code) => {
-            this.proc = null;
-            const err = new Error(`PlantUML process exited unexpectedly (code ${code})`);
-            if (this.pending) {
-                const p = this.pending;
-                this.pending = null;
-                p.reject(err);
-            }
-            this.queue.forEach(item => item.reject(err));
-            this.queue = [];
-        });
+        proc.stderr!.on('data', () => {});
+        proc.stdin!.on('error', fail);
+        proc.on('error', fail);
+        proc.on('close', (code) => fail(new Error(`PlantUML process exited unexpectedly (code ${code})`)));
     }
 }
